@@ -1,12 +1,15 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+// eslint-config-next 16 ÄR en flat config och ska spridas rakt in här.
+// Den tidigare FlatCompat-omvägen är kvar från äldre versioner och kraschar mot
+// den nya formen ("Converting circular structure to JSON") – lint gick alltså
+// inte att köra alls.
 
-const compat = new FlatCompat({
-  baseDirectory: dirname(fileURLToPath(import.meta.url)),
-});
+import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
+import nextTypescript from "eslint-config-next/typescript";
 
-export default [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
-  { ignores: [".next/**", "node_modules/**"] },
+const config = [
+  ...nextCoreWebVitals,
+  ...nextTypescript,
+  { ignores: [".next/**", "node_modules/**", "next-env.d.ts"] },
 ];
+
+export default config;

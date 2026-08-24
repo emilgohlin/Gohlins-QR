@@ -1,7 +1,13 @@
 # Göhlins Kundorder
 
 Kundernas egen beställningsapp. Logga in med företagsnamn och PIN, skanna
-QR-koden på hyllkanten, välj antal, skicka. Ordern mejlas som PDF och XML.
+QR-koden på hyllkanten, justera antalet, skicka. Ordern mejlas till innesälj med
+raderna i mejlkroppen och en ORDERS420-fil som bilaga.
+
+Artikelnummer **och benämning kommer ur QR-koden** — appen har inget
+artikelregister. Det är ett medvetet första steg: utan benämning är en
+felskanning osynlig för kunden, men ett register som ska hållas i synk kan vänta
+tills affärssystemskopplingen finns.
 
 ## Kom igång
 
@@ -10,6 +16,25 @@ QR-koden på hyllkanten, välj antal, skicka. Ordern mejlas som PDF och XML.
 3. Kör `supabase/migrations/0001_init.sql` i SQL-editorn.
 4. Kopiera `.env.example` till `.env.local` och fyll i.
 5. `npm run dev`
+
+## Lägga upp en kund
+
+    npm run skapa-kund -- --kundnr 12345 --namn "Ackwell" --pin 1913
+
+Utan `--pin` slumpas en sexsiffrig kod fram och skrivs ut en gång. Skriptet
+hashar koden med scrypt **innan** något lämnar datorn, och det är därför det
+finns: skrivs kontot upp med SQL i Supabases editor ligger PIN-koden kvar
+läsbar i frågehistoriken.
+
+Tappas en kod bort går den inte att läsa ut — sätt en ny med `--byt-pin`.
+
+## Mejlet
+
+Skickas via Microsoft 365 (Graph) från postlådan i `ORDER_EMAIL_FROM`.
+Appregistreringen i Entra ID behöver rättigheten **Mail.Send (application)**,
+admin-godkänd. Begränsa den gärna till just avsändarpostlådan med en
+application access policy i Exchange — annars får appen skicka som vem som helst
+i organisationen.
 
 ## Test
 

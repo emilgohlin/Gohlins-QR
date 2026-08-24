@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { hashPin, verifyPin, generatePin, loginName, MIN_PIN_LENGTH } from "../src/lib/pin";
+import {
+  hashPin, verifyPin, generatePin, loginName, MIN_PIN_LENGTH, GENERATED_PIN_LENGTH,
+} from "../src/lib/pin";
 
 test("rätt PIN godkänns, fel avvisas", async () => {
   const rec = await hashPin("471102");
@@ -26,10 +28,14 @@ test("en trasig hash kraschar inte", async () => {
   assert.equal(await verifyPin("471102", { pin_hash: "", pin_salt: "" }), false);
 });
 
+test("slumpade koder är längre än minimum – minimum gäller den som väljer själv", () => {
+  assert.ok(GENERATED_PIN_LENGTH > MIN_PIN_LENGTH);
+});
+
 test("genererade PIN-koder har rätt längd och bara siffror", () => {
   for (let i = 0; i < 50; i++) {
     const pin = generatePin();
-    assert.equal(pin.length, MIN_PIN_LENGTH);
+    assert.equal(pin.length, GENERATED_PIN_LENGTH);
     assert.match(pin, /^\d+$/);
   }
   assert.equal(generatePin(8).length, 8);

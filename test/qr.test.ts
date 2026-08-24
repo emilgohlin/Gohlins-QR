@@ -56,16 +56,51 @@ test("extra blanksteg spelar ingen roll", () => {
 test("gissar aldrig ett antal", () => {
   fail("");
   fail("   ");
-  fail("7900696*abc");     // andra delen är inget antal
-  fail("7900696*10*3");    // tre delar – vi vet inte vad koden betyder
+  // Två tal efter artikelnumret går inte att skilja åt: är antalet 10 eller 3?
+  fail("7900696*10*3");
   fail("7900696*0");       // noll är inget beställt antal
   fail("7900696*-5");      // negativt antal
+  fail("7900696*2,5*4");   // decimaltal räknas också som tal
+  // Fyra fält är inget format vi känner igen.
+  fail("7900696*Skruv*4*extra");
+});
+
+test("benämning läses ur koden", () => {
+  const v = ok("7900696*Skruv M8 x 40*4");
+  assert.equal(v.articleNumber, "7900696");
+  assert.equal(v.name, "Skruv M8 x 40");
+  assert.equal(v.quantity, 4);
+  // Fälten identifieras på vad de är, inte på ordningen.
+  const bak = ok("7900696*4*Skruv M8 x 40");
+  assert.equal(bak.name, "Skruv M8 x 40");
+  assert.equal(bak.quantity, 4);
+  // Benämning utan antal – kunden fyller i antalet i appen.
+  const utan = ok("7900696;Kabelsko 6 mm");
+  assert.equal(utan.name, "Kabelsko 6 mm");
+  assert.equal(utan.quantity, null);
+  // Bara nummer: ingen benämning, och det är inte ett fel.
+  assert.equal(ok("7900696").name, null);
+});
+
+test("blanksteg i benämningen överlever separatorn", () => {
+  // Blanksteg delar bara koden när ingen riktig separator finns. Annars hade
+  // varje benämning gått sönder i delar och koden avslagits.
+  const v = ok("7900696*Vinkelfäste 90 grader");
+  assert.equal(v.articleNumber, "7900696");
+  assert.equal(v.name, "Vinkelfäste 90 grader");
+  // Enheten i benämningen får innehålla decimaltal utan att bli ett antal.
+  assert.equal(ok("7900696|Rör 2,5 m").name, "Rör 2,5 m");
+  assert.equal(ok("7900696|Rör 2,5 m").quantity, null);
+  // Utan separator delas koden vid FÖRSTA blanksteget och inte fler.
+  assert.equal(ok("7900696 Skruv M8 x 40").name, "Skruv M8 x 40");
+  assert.equal(ok("7900696 Skruv M8 x 40").quantity, null);
 });
 
 test("JSON-etiketter läses också", () => {
-  const v = ok('{"artikelnummer":"7900696","antal":12}');
+  const v = ok('{"artikelnummer":"7900696","antal":12,"benämning":"Skruv M8"}');
   assert.equal(v.articleNumber, "7900696");
   assert.equal(v.quantity, 12);
+  assert.equal(v.name, "Skruv M8");
   assert.equal(ok('{"artnr":"7900696"}').quantity, null);
   // Trasig JSON ska inte krascha; den behandlas som text och avslås.
   fail("{trasig");

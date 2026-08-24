@@ -23,9 +23,25 @@ const scrypt = promisify(scryptCb) as (
 
 const KEY_LENGTH = 64;
 
-/** Kortare än så är inte värt att skydda; en fyrsiffrig PIN har 10 000
- *  möjligheter och hinns igenom även med lås. */
-export const MIN_PIN_LENGTH = 6;
+/**
+ * Kortast tillåtna PIN.
+ *
+ * Fyra siffror är ett medvetet verksamhetsbeslut: kunden står vid en hyllkant
+ * med telefonen i ena handen, och en lång kod blir en kod på en lapp bredvid
+ * datorn. Priset är att skyddet i praktiken vilar HELT på låset nedan — 10 000
+ * möjligheter är i sig inget hinder. Sänk aldrig MAX_FAILED eller LOCK_MINUTES
+ * utan att räkna om vad det innebär.
+ */
+export const MIN_PIN_LENGTH = 4;
+
+/**
+ * Längd på koder vi slumpar fram själva.
+ *
+ * Längre än minimum, och det är ingen motsägelse: minimum är vad vi accepterar
+ * när någon väljer själv, det här är vad vi ger när ingen har någon åsikt. En
+ * kod kunden aldrig har valt är lika lätt att minnas med sex siffror.
+ */
+export const GENERATED_PIN_LENGTH = 6;
 
 /** Antal misslyckade försök innan kontot låses. */
 export const MAX_FAILED = 5;
@@ -57,7 +73,7 @@ export async function verifyPin(
 }
 
 /** Slumpar en PIN att ge kunden. Genererad, inte vald: kunder väljer 1234. */
-export function generatePin(digits = MIN_PIN_LENGTH): string {
+export function generatePin(digits = GENERATED_PIN_LENGTH): string {
   let out = "";
   while (out.length < digits) {
     // Modulo 10 på en byte lutar mot låga siffror (256 = 25×10 + 6), så de sex
