@@ -53,9 +53,9 @@ async function main() {
     );
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) avbryt("NEXT_PUBLIC_SUPABASE_URL och SUPABASE_SERVICE_ROLE_KEY saknas.");
+  if (!url || !key) avbryt("SUPABASE_URL och SUPABASE_SERVICE_ROLE_KEY saknas.");
 
   const login = loginName(namn);
   const db = createClient(url, key, { auth: { persistSession: false } });

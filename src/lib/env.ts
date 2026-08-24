@@ -4,9 +4,15 @@
 // den här kontrollen blir en glömd nyckel i stället ett "fetch failed" mitt i en
 // kundorder, och då har kunden redan skannat sina rader.
 //
+// INGEN av variablerna har NEXT_PUBLIC_-prefix, och det är avsiktligt. Prefixet
+// bygger in värdet i webbläsarpaketet, och ingenting här ska dit — inte ens
+// projekt-URL:en, som visserligen inte är hemlig men heller inte används av
+// klienten. Webbläsaren pratar aldrig med Supabase; all datatrafik går via våra
+// egna route handlers.
+//
 // Bara serverkod får importera filen. Skulle en klientkomponent göra det blir
-// bygget rött, eftersom NEXT_PUBLIC_ saknas på namnen – vilket är precis den
-// varning vi vill ha: service-nyckeln får aldrig till webbläsaren.
+// bygget rött, och det är precis den varning vi vill ha: service-nyckeln får
+// aldrig till webbläsaren.
 
 import "server-only";
 
@@ -21,7 +27,7 @@ function required(name: string): string {
 }
 
 export const env = {
-  supabaseUrl: () => required("NEXT_PUBLIC_SUPABASE_URL"),
+  supabaseUrl: () => required("SUPABASE_URL"),
   supabaseServiceKey: () => required("SUPABASE_SERVICE_ROLE_KEY"),
   sessionSecret: () => required("SESSION_SECRET"),
 

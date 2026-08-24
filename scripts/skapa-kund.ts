@@ -74,11 +74,11 @@ async function main() {
     console.log(`\n  Slumpad PIN: ${pin}`);
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
     avbryt(
-      "NEXT_PUBLIC_SUPABASE_URL och SUPABASE_SERVICE_ROLE_KEY saknas.\n" +
+      "SUPABASE_URL och SUPABASE_SERVICE_ROLE_KEY saknas.\n" +
         "    Kopiera .env.example till .env.local och fyll i dem.",
     );
   }
