@@ -1,9 +1,21 @@
 // Tolkar QR-koden på kundens hyllkant.
 //
-// Koden bär ett artikelnummer, och därtill benämning och/eller ett
-// förregistrerat antal av just den artikeln. Benämningen kommer från koden och
-// ingen annanstans: appen har inget artikelregister, och utan benämning är en
-// felskanning osynlig för kunden ända fram till leveransen.
+// Koden bär ett artikelnummer, och därtill benämning, antal och enhet. Allt
+// kommer från koden och ingen annanstans: appen har inget artikelregister, och
+// utan benämning är en felskanning osynlig för kunden ända fram till
+// leveransen.
+//
+// RIKTIGA DEKALER SER UT SÅ HÄR:
+//
+//   [ARTNR]BV025[BEN]BATTERIVATTEN 25L[ANTAL]1[ENH]ST
+//
+// Märkta fält, inte separatorer, och det är den formen som gäller i skarp
+// drift. Att fälten är namngivna gör formatet oberoende av ordning och
+// oberoende av vad värdena innehåller: en benämning får bära blanksteg,
+// bindestreck och siffror utan att något går sönder.
+//
+// De separatorformer som beskrivs längre ned finns kvar för äldre dekaler och
+// för den som knappar in ett artikelnummer för hand.
 //
 // SKILJETECKNET är valt mot verkligheten, inte gissat. Alla 82 492
 // artikelnummer i registret granskades: de består av siffror och bokstäver, och
@@ -48,6 +60,8 @@ export interface ScanResult {
   name: string | null;
   /** Förregistrerat antal, eller null när koden inte bar något. */
   quantity: number | null;
+  /** Enhet ur koden ("ST", "M"), eller null. Skrivs som dekalen skriver den. */
+  unit: string | null;
   /** Hela koden, sparas på orderraden så en felskanning kan spåras. */
   raw: string;
 }
@@ -93,10 +107,82 @@ function splitFields(text: string): string[] {
   return m ? [m[1], m[2].trim()] : [text];
 }
 
+/**
+ * Fältnamnen på dekalen, och de skrivsätt vi accepterar.
+ *
+ * Synonymerna är inte gissningar om framtiden utan billig tolerans: samma fält
+ * kan heta [BEN] på en etikettmall och [BENÄMNING] på nästa, och skillnaden ska
+ * inte bli en avslagen skanning framför hyllan.
+ */
+const FÄLT = {
+  artikelnummer: ["ARTNR", "ARTIKELNR", "ARTIKELNUMMER", "ART", "NR"],
+  benämning: ["BEN", "BENÄMNING", "BENAMNING", "NAMN", "TEXT"],
+  antal: ["ANTAL", "QTY", "MÄNGD", "MANGD"],
+  enhet: ["ENH", "ENHET", "UNIT"],
+} as const;
+
+/** Ett fält: [NAMN] följt av allt fram till nästa hakparentes. */
+const MÄRKT_FÄLT = /\[([^\]]+)\]([^[]*)/g;
+
+function hämta(fält: Map<string, string>, namn: readonly string[]): string | null {
+  for (const n of namn) {
+    const värde = fält.get(n);
+    if (värde) return värde;
+  }
+  return null;
+}
+
+/**
+ * Tolkar den märkta formen: [ARTNR]BV025[BEN]BATTERIVATTEN 25L[ANTAL]1[ENH]ST
+ *
+ * Returnerar null när koden inte är märkt alls, så tolkningen kan falla vidare
+ * till separatorformerna. Är koden DÄREMOT märkt men obegriplig avslås den här
+ * — att falla vidare hade låtit separatorparsern göra något halvt av en kod vi
+ * redan vet formen på.
+ */
+function parseMärkt(text: string, raw: string): ScanOutcome | null {
+  if (!text.startsWith("[")) return null;
+
+  const fält = new Map<string, string>();
+  for (const [, namn, värde] of text.matchAll(MÄRKT_FÄLT)) {
+    // Versaler: dekalen kan skriva [artnr] lika gärna som [ARTNR].
+    fält.set(namn.trim().toUpperCase(), värde.trim());
+  }
+  if (!fält.size) return null;
+
+  const artikel = hämta(fält, FÄLT.artikelnummer);
+  if (!artikel || !ARTICLE_CHARS.test(artikel)) {
+    return { ok: false, raw, reason: "otolkbar" };
+  }
+
+  const antalText = hämta(fält, FÄLT.antal);
+  const antal = antalText ? parseQuantity(antalText) : null;
+  // Står det ett antal på dekalen ska det gå att läsa. Går det inte vet vi inte
+  // vad koden betyder, och då är det fel att skicka artikeln vidare ändå.
+  if (antalText && antal === null) {
+    return { ok: false, raw, reason: "otolkbar" };
+  }
+
+  return {
+    ok: true,
+    value: {
+      articleNumber: artikel,
+      name: hämta(fält, FÄLT.benämning),
+      quantity: antal,
+      unit: hämta(fält, FÄLT.enhet),
+      raw,
+    },
+  };
+}
+
 /** Tolkar en skannad QR-kod. */
 export function parseScan(raw: string): ScanOutcome {
   const text = raw.trim();
   if (!text) return { ok: false, raw, reason: "tom" };
+
+  // Den märkta formen först: det är den riktiga dekalen.
+  const märkt = parseMärkt(text, raw);
+  if (märkt) return märkt;
 
   // Vissa etikettsystem lägger ut JSON. Läses om den är begriplig, annars faller
   // vi igenom till separatorformen.
@@ -115,6 +201,7 @@ export function parseScan(raw: string): ScanOutcome {
             articleNumber: art,
             name: name ?? null,
             quantity: qtyRaw ? parseQuantity(qtyRaw) : null,
+            unit: firstString(obj, ["enhet", "enh", "unit"]),
             raw,
           },
         };
@@ -132,7 +219,7 @@ export function parseScan(raw: string): ScanOutcome {
   const rest = parts.slice(1);
 
   if (rest.length === 0) {
-    return { ok: true, value: { articleNumber, name: null, quantity: null, raw } };
+    return { ok: true, value: { articleNumber, name: null, quantity: null, unit: null, raw } };
   }
 
   // Fälten efter artikelnumret identifieras på vad de ÄR, inte på ordningen:
@@ -160,6 +247,8 @@ export function parseScan(raw: string): ScanOutcome {
       articleNumber,
       name: names.length ? names[0] : null,
       quantity: quantities.length ? parseQuantity(quantities[0]) : null,
+      // De äldre formerna bär ingen enhet; orderraden får då appens "st".
+      unit: null,
       raw,
     },
   };

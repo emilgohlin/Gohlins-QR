@@ -57,7 +57,7 @@ export default function Bestallning({ företag, kundnr }: Props) {
       );
       return;
     }
-    const { articleNumber, name, quantity } = resultat.value;
+    const { articleNumber, name, quantity, unit } = resultat.value;
     setVarning(
       rader.some((r) => r.artikelnummer === articleNumber)
         ? `${articleNumber} finns redan på ordern – kontrollera antalet.`
@@ -72,7 +72,9 @@ export default function Bestallning({ företag, kundnr }: Props) {
         // Bar koden inget antal är 1 den enda gissning som inte kan bli för
         // stor, och kunden ändrar den ändå på plats.
         antal: quantity !== null ? String(quantity).replace(".", ",") : "1",
-        enhet: "st",
+        // Enheten kommer från dekalen när den står där. "st" är bara det svar
+        // som stämmer oftast när koden inte säger något.
+        enhet: unit ?? "st",
         rå: resultat.value.raw,
       },
     ]);
