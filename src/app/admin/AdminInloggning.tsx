@@ -21,9 +21,13 @@ export default function AdminInloggning() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ namn, kod }),
       });
-      const svar = (await res.json()) as { fel?: string };
+      // .catch: ett 500-svar har ingen JSON-kropp, och utan detta kastar
+      // res.json() och koden hamnar i catch-grenen nedan – som säger
+      // "kontrollera uppkopplingen" fast uppkopplingen är utmärkt och det är
+      // servern som fallerat. Fel diagnos skickar den som felsöker åt fel håll.
+      const svar = (await res.json().catch(() => ({}))) as { fel?: string };
       if (!res.ok) {
-        setFel(svar.fel ?? "Något gick fel.");
+        setFel(svar.fel ?? `Servern svarade med ett fel (${res.status}). Försök igen.`);
         setKod("");
         return;
       }

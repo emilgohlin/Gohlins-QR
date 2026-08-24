@@ -121,9 +121,16 @@ export default function Bestallning({ företag, kundnr }: Props) {
           })),
         }),
       });
-      const svar = (await res.json()) as { fel?: string; ordernummer?: string };
+      // Se kommentaren i Inloggning.tsx: utan .catch blir ett serverfel till
+      // ett påstått nätverksfel.
+      const svar = (await res.json().catch(() => ({}))) as {
+        fel?: string;
+        ordernummer?: string;
+      };
       if (!res.ok || !svar.ordernummer) {
-        setFel(svar.fel ?? "Ordern kunde inte skickas.");
+        setFel(
+          svar.fel ?? `Ordern kunde inte skickas (fel ${res.status}). Försök igen.`,
+        );
         return;
       }
       setSkickad(svar.ordernummer);
