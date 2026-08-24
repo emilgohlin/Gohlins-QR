@@ -127,11 +127,22 @@ test("uppslagsnyckeln normaliserar ledande nollor", () => {
 });
 
 test("den märkta dekalen – formatet som gäller i skarp drift", () => {
+  // Båda är riktiga dekaler ur hyllan, inte påhittade exempel. De står här för
+  // att formatet ska gå att känna igen när någon läser testet om två år.
   const v = ok("[ARTNR]BV025[BEN]BATTERIVATTEN 25L[ANTAL]1[ENH]ST");
   assert.equal(v.articleNumber, "BV025");
   assert.equal(v.name, "BATTERIVATTEN 25L");
   assert.equal(v.quantity, 1);
   assert.equal(v.unit, "ST");
+
+  // Benämningen bär ett bindestreck. Att fälten är namngivna gör att det inte
+  // spelar någon roll – i separatorformen hade varje sådant tecken varit en
+  // fråga om det delar koden eller hör till värdet.
+  const b = ok("[ARTNR]KQ2P04[BEN]BLINDPLUGG KQ2P-04[ANTAL]10[ENH]ST");
+  assert.equal(b.articleNumber, "KQ2P04");
+  assert.equal(b.name, "BLINDPLUGG KQ2P-04");
+  assert.equal(b.quantity, 10);
+  assert.equal(b.unit, "ST");
 });
 
 test("märkta fält är oberoende av ordning, skiftläge och blanksteg", () => {
