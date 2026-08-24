@@ -16,6 +16,16 @@ export default async function Ordersidan() {
   const session = await readAdminSession();
   if (!session) redirect("/admin");
 
+  // Kontot kontrolleras vid varje sidvisning, inte bara vid inloggningen.
+  // Sessionen lever i tolv timmar, och ett avstängt konto ska sluta se andras
+  // ordrar nu och inte i morgon bitti.
+  const { data: personal } = await db()
+    .from("staff_accounts")
+    .select("active")
+    .eq("id", session.id)
+    .maybeSingle();
+  if (!personal?.active) redirect("/admin");
+
   const { data: ordrar } = await db()
     .from("orders")
     .select("id, account_id, order_number, reference, status, error, created_at, sent_at, handled_at, handled_by")

@@ -43,7 +43,7 @@ function tidpunkt(iso: string): string {
 
 /** Antal utan onödiga decimaler: "4" och "2,5", inte "4.00". */
 function antal(n: number): string {
-  return (Number.isInteger(n) ? String(n) : String(n)).replace(".", ",");
+  return String(n).replace(".", ",");
 }
 
 /**
@@ -76,19 +76,40 @@ export default function Ordrar({
   const router = useRouter();
   const [baraOhanterade, setBaraOhanterade] = useState(true);
   const [arbetar, setArbetar] = useState<string | null>(null);
+  const [fel, setFel] = useState<string | null>(null);
 
   const ohanterade = ordrar.filter((o) => !o.hanterad);
-  const synliga = baraOhanterade ? ohanterade : ordrar;
+  // Ohanterade först, nyast överst inom varje grupp. Listan ska svara på "vad
+  // ligger och väntar" – med filtret avslaget låg det som väntade annars
+  // inblandat bland det som redan var gjort, sorterat på datum.
+  const synliga = baraOhanterade
+    ? ohanterade
+    : [...ohanterade, ...ordrar.filter((o) => o.hanterad)];
 
   async function kvittera(order: AdminOrder) {
     setArbetar(order.id);
+    setFel(null);
     try {
-      await fetch("/api/admin/hanterad", {
+      const res = await fetch("/api/admin/hanterad", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id: order.id, hanterad: !order.hanterad }),
       });
+      // Utan den här kontrollen ser en utloggad session ut som en lyckad
+      // kvittering: knappen släpper, listan ritas om oförändrad, och ordern
+      // ligger kvar utan att någon vet om den är omhändertagen.
+      if (!res.ok) {
+        const svar = (await res.json().catch(() => ({}))) as { fel?: string };
+        setFel(
+          res.status === 401
+            ? "Du är utloggad. Ladda om sidan och logga in igen."
+            : (svar.fel ?? "Kvitteringen sparades inte. Försök igen."),
+        );
+        return;
+      }
       router.refresh();
+    } catch {
+      setFel("Ingen kontakt med servern. Kvitteringen sparades inte.");
     } finally {
       setArbetar(null);
     }
@@ -118,6 +139,15 @@ export default function Ordrar({
           </button>
         </div>
       </header>
+
+      {fel && (
+        <p
+          role="alert"
+          className="mt-4 rounded-xl border-l-4 border-gohlins bg-gohlins-ljus px-4 py-3 text-sm text-gray-900"
+        >
+          {fel}
+        </p>
+      )}
 
       <label className="mt-5 flex items-center gap-2 text-sm text-gray-700">
         <input

@@ -182,3 +182,30 @@ test("råkoden sparas även för märkta dekaler", () => {
   const raw = "[ARTNR]BV025[BEN]BATTERIVATTEN 25L[ANTAL]1[ENH]ST";
   assert.equal(ok(raw).raw, raw);
 });
+
+test("en kod som bara är separatorer är ingen artikel", () => {
+  // Utan kontrollen lästes parts[0] som undefined, strängen "undefined"
+  // godkändes som artikelnummer, och en tom rad hamnade i ordern.
+  fail("*");
+  fail(";;");
+  fail("| |");
+  fail("***");
+});
+
+test("JSON med oläsbart antal avslås, precis som den märkta formen", () => {
+  // Tyst null hade blivit 1 i formuläret – en etikett med "antal 12" kunde
+  // därmed bli en order på ett.
+  fail('{"artnr":"BV025","antal":"en pall"}');
+  fail('{"artnr":"BV025","antal":"0"}');
+  // Utan antal alls är det inget fel; kunden fyller i.
+  assert.equal(ok('{"artnr":"BV025"}').quantity, null);
+});
+
+test("hakparenteser i benämningen tappas inte", () => {
+  // Bara kända fältnamn delar koden. Ett okänt [25L] är text, inte ett fält.
+  const v = ok("[ARTNR]BV025[BEN]BATTERI [25L][ANTAL]1");
+  assert.equal(v.name, "BATTERI [25L]");
+  assert.equal(v.quantity, 1);
+  // En kod med enbart okända fält är inte den märkta formen.
+  fail("[SSCC]00370123456789012345");
+});

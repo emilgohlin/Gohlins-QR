@@ -30,10 +30,16 @@ export interface OrderMailInput {
   lines: MailLine[];
 }
 
-/** Antal utan onödiga decimaler: "4" och "2,5", inte "4.00". Mejlet läses av en
- *  människa; XML:en är den som ska ha maskinformatet. */
+/**
+ * Antal utan onödiga decimaler: "4" och "2,5", inte "4.00". Mejlet läses av en
+ * människa; XML:en är den som ska ha maskinformatet.
+ *
+ * Nollorna måste strippas TILLSAMMANS med punkten. Gjorde man det inte blev
+ * 2,001 till "2," i mejlet innesälj läser — ett antal som ser ut som ett
+ * avbrutet tal.
+ */
 function qty(n: number): string {
-  return (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, "")).replace(".", ",");
+  return n.toFixed(2).replace(/\.?0+$/, "").replace(".", ",");
 }
 
 export function orderMailText(order: OrderMailInput): string {

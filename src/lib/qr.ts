@@ -121,8 +121,21 @@ const FÄLT = {
   enhet: ["ENH", "ENHET", "UNIT"],
 } as const;
 
-/** Ett fält: [NAMN] följt av allt fram till nästa hakparentes. */
-const MÄRKT_FÄLT = /\[([^\]]+)\]([^[]*)/g;
+/**
+ * Bara KÄNDA fältnamn delar koden.
+ *
+ * Frestelsen är att låta varje [något] vara en fältmarkör. Då tappar man tyst
+ * text: "[BEN]BATTERI [25L]" skulle bli benämningen "BATTERI", eftersom
+ * hakparentesen i värdet såg ut som början på nästa fält. Ett okänt [25L] är
+ * inte ett fält — det är text som råkar ha hakparenteser.
+ */
+const ALLA_FÄLTNAMN = [
+  ...FÄLT.artikelnummer,
+  ...FÄLT.benämning,
+  ...FÄLT.antal,
+  ...FÄLT.enhet,
+];
+const MÄRKT_FÄLT = new RegExp(`\\[(${ALLA_FÄLTNAMN.join("|")})\\]`, "gi");
 
 function hämta(fält: Map<string, string>, namn: readonly string[]): string | null {
   for (const n of namn) {
@@ -143,10 +156,19 @@ function hämta(fält: Map<string, string>, namn: readonly string[]): string | n
 function parseMärkt(text: string, raw: string): ScanOutcome | null {
   if (!text.startsWith("[")) return null;
 
+  // split med fångande grupp ger ["", "ARTNR", "BV025", "BEN", "BATTERI [25L]", …]
+  // – först texten före första fältet, sedan namn och värde om vartannat.
+  const delar = text.split(MÄRKT_FÄLT);
+  if (delar.length < 3) return null;
+
   const fält = new Map<string, string>();
-  for (const [, namn, värde] of text.matchAll(MÄRKT_FÄLT)) {
+  for (let i = 1; i < delar.length - 1; i += 2) {
     // Versaler: dekalen kan skriva [artnr] lika gärna som [ARTNR].
-    fält.set(namn.trim().toUpperCase(), värde.trim());
+    const namn = delar[i].trim().toUpperCase();
+    // Först vinner: står samma fält två gånger är det första det som stod
+    // närmast artikelnumret, och att låta det andra skriva över vore ett val
+    // utan grund.
+    if (!fält.has(namn)) fält.set(namn, delar[i + 1].trim());
   }
   if (!fält.size) return null;
 
@@ -192,6 +214,12 @@ export function parseScan(raw: string): ScanOutcome {
       const art = firstString(obj, ["artikelnummer", "artnr", "article", "art", "nr"]);
       if (art && ARTICLE_CHARS.test(art)) {
         const qtyRaw = firstString(obj, ["antal", "quantity", "qty", "mängd"]);
+        // Står det ett antal ska det gå att läsa. Samma regel som för den
+        // märkta formen: ett oläsbart antal blev annars tyst null, och klienten
+        // föreslår 1 – en etikett med "antal 12" hade kunnat bli en order på 1.
+        if (qtyRaw && parseQuantity(qtyRaw) === null) {
+          return { ok: false, raw, reason: "otolkbar" };
+        }
         const name = firstString(obj, [
           "benämning", "benamning", "namn", "beskrivning", "name", "description", "text",
         ]);
@@ -212,7 +240,10 @@ export function parseScan(raw: string): ScanOutcome {
   }
 
   const parts = splitFields(text);
-  if (parts.length > 3 || !ARTICLE_CHARS.test(parts[0])) {
+  // Noll delar betyder att koden bara bestod av separatorer ("*", ";;"). Utan
+  // kontrollen läses parts[0] som undefined, strängen "undefined" godkänns som
+  // artikelnummer, och en tom rad hamnar i ordern.
+  if (parts.length === 0 || parts.length > 3 || !ARTICLE_CHARS.test(parts[0])) {
     return { ok: false, raw, reason: "otolkbar" };
   }
   const articleNumber = parts[0];

@@ -8,7 +8,6 @@
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { env } from "@/lib/env";
 import { readSession } from "@/lib/session";
 import { sendMail, mejlKonfigurerat } from "@/lib/graph";
 import { buildOrderMail, type MailLine } from "@/lib/orderMail";
@@ -68,11 +67,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ fel: "Ordern är tom." }, { status: 400 });
   }
 
+  // Kontot läses om vid varje order, inte bara vid inloggningen. Sessionen
+  // lever i tolv timmar, och ett konto som stängs av ska sluta fungera nu och
+  // inte i morgon bitti.
   const { data: konto } = await db()
     .from("customer_accounts")
-    .select("contact_email")
+    .select("contact_email, active")
     .eq("id", session.id)
     .maybeSingle();
+
+  if (!konto || !konto.active) {
+    return NextResponse.json(
+      { fel: "Kontot är avstängt. Kontakta din säljare på Göhlins." },
+      { status: 403 },
+    );
+  }
 
   const { data: order, error: orderFel } = await db()
     .from("orders")
@@ -101,7 +110,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ fel: "Raderna kunde inte sparas." }, { status: 500 });
   }
 
-  const till = env.orderEmailTo().split(",").map((a) => a.trim()).filter(Boolean);
+  // process.env och inte env.orderEmailTo(): saknas adressen ska vi hamna i
+  // grenen nedan som sparar ordern och loggar mejlet, inte kasta ett 500 som
+  // lämnar ordern som "utkast" utan spår av varför.
+  const till = (process.env.ORDER_EMAIL_TO ?? "")
+    .split(",")
+    .map((a) => a.trim())
+    .filter(Boolean);
   const mail = buildOrderMail(
     {
       orderNumber: order.order_number,

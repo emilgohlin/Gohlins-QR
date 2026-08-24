@@ -16,6 +16,7 @@
 //   --byt-pin                   sätter en ny PIN
 //   --byt-kundnr                rättar kundnumret
 //   --tidigare "gamla namnet"   byter namn på kontot
+//   --avaktivera / --aktivera   stänger av eller öppnar kontot
 //
 // Flaggorna går att kombinera. Ett namnbyte behåller kontots ordrar; att skapa
 // ett nytt konto hade lämnat dem hos det gamla.
@@ -45,7 +46,10 @@ async function main() {
 
   // Kundnumret krävs när kontot skapas, och när det uttryckligen ska rättas.
   // Ett rent namnbyte rör det inte, och ska då inte behöva upprepa det.
-  const behöverKundnr = !tidigare || flag("byt-kundnr");
+  const ändrarBefintligt =
+    Boolean(tidigare) || flag("byt-pin") || flag("byt-kundnr") ||
+    flag("avaktivera") || flag("aktivera");
+  const behöverKundnr = !ändrarBefintligt || flag("byt-kundnr");
   if (behöverKundnr && !kundnr) {
     avbryt(
       "Ange kundnumret hos Göhlins: --kundnr 12345\n" +
@@ -57,7 +61,7 @@ async function main() {
   // En PIN slumpas bara när den faktiskt ska sättas. Att skriva ut en kod som
   // inte används ser ut som att kontots kod just bytts — och då byter någon
   // kodlapp i onödan, eller tror att den gamla slutat gälla.
-  const sätterPin = !tidigare || flag("byt-pin");
+  const sätterPin = !ändrarBefintligt || flag("byt-pin");
   let pin = arg("pin")?.trim();
   if (pin && !/^\d+$/.test(pin)) {
     avbryt("PIN-koden ska bara innehålla siffror.");
@@ -95,11 +99,11 @@ async function main() {
     avbryt(`Hittade inget konto som loggar in med "${uppslag}".`);
   }
 
-  if (befintlig && !tidigare && !flag("byt-pin") && !flag("byt-kundnr")) {
+  if (befintlig && !ändrarBefintligt) {
     avbryt(
       `${befintlig.company_name} finns redan som "${login}".\n` +
-        "    Lägg till --byt-pin för att sätta en ny PIN, --byt-kundnr för att\n" +
-        '    rätta kundnumret, eller --tidigare "gamla namnet" för att byta namn.',
+        "    --byt-pin sätter ny PIN, --byt-kundnr rättar kundnumret,\n" +
+        '    --tidigare "gamla namnet" byter namn, --avaktivera stänger av kontot.',
     );
   }
 
@@ -136,6 +140,19 @@ async function main() {
         .eq("id", befintlig.id);
       if (error) avbryt(`Kunde inte spara mejladressen: ${error.message}`);
       console.log(`  ✓ Mejladress: ${mejl}`);
+    }
+
+    // Avstängning i stället för radering: ordrarna hänger i kontot, och ett
+    // raderat konto tar historiken med sig. active kontrolleras vid varje
+    // order, inte bara vid inloggningen.
+    if (flag("avaktivera") || flag("aktivera")) {
+      const active = flag("aktivera");
+      const { error } = await db
+        .from("customer_accounts")
+        .update({ active, failed_count: 0, locked_until: null })
+        .eq("id", befintlig.id);
+      if (error) avbryt(`Kunde inte ändra kontots status: ${error.message}`);
+      console.log(`  ✓ Kontot är nu ${active ? "öppet" : "avstängt"}.`);
     }
 
     if (flag("byt-pin")) {

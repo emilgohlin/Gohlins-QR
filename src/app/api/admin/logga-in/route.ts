@@ -39,19 +39,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ fel: FEL }, { status: 401 });
   }
 
-  if (konto.locked_until && new Date(konto.locked_until) > new Date()) {
-    const minuter = Math.max(
-      1,
-      Math.ceil((new Date(konto.locked_until).getTime() - Date.now()) / 60000),
-    );
+  const låstTill = konto.locked_until ? new Date(konto.locked_until) : null;
+  if (låstTill && låstTill > new Date()) {
+    const minuter = Math.max(1, Math.ceil((låstTill.getTime() - Date.now()) / 60000));
     return NextResponse.json(
       { fel: `Kontot är låst. Försök igen om ${minuter} minuter.` },
       { status: 429 },
     );
   }
 
+  // Se kundinloggningen: räknaren börjar om när låset löpt ut, annars låser
+  // första felskrivningen efteråt kontot direkt.
+  const tidigareFel = låstTill ? 0 : konto.failed_count;
+
   if (!(await verifyPin(kod, konto))) {
-    const failed = konto.failed_count + 1;
+    const failed = tidigareFel + 1;
     await db()
       .from("staff_accounts")
       .update({

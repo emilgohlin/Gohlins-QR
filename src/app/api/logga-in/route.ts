@@ -49,19 +49,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ fel: FEL }, { status: 401 });
   }
 
-  if (konto.locked_until && new Date(konto.locked_until) > new Date()) {
-    const minuter = Math.max(
-      1,
-      Math.ceil((new Date(konto.locked_until).getTime() - Date.now()) / 60000),
-    );
+  const låstTill = konto.locked_until ? new Date(konto.locked_until) : null;
+  if (låstTill && låstTill > new Date()) {
+    const minuter = Math.max(1, Math.ceil((låstTill.getTime() - Date.now()) / 60000));
     return NextResponse.json(
       { fel: `Kontot är låst efter för många försök. Försök igen om ${minuter} minuter.` },
       { status: 429 },
     );
   }
 
+  // Har låset löpt ut börjar räkningen om. Utan nollställningen ligger
+  // failed_count kvar på fem, och FÖRSTA felskrivningen efter kvarten låser
+  // kontot igen — kunden får aldrig ett enda försök på sig.
+  const tidigareFel = låstTill ? 0 : konto.failed_count;
+
   if (!(await verifyPin(pin, konto))) {
-    const failed = konto.failed_count + 1;
+    const failed = tidigareFel + 1;
     await db()
       .from("customer_accounts")
       .update({
@@ -73,14 +76,15 @@ export async function POST(request: Request) {
       })
       .eq("id", konto.id);
 
-    const kvar = MAX_FAILED - failed;
+    // Samma svar oavsett hur många försök som är kvar.
+    //
+    // Att räkna ned åt kunden vore vänligt, men "3 försök kvar" säger också att
+    // företaget FINNS som kund — ett okänt namn får ju ingen nedräkning. Då är
+    // hela poängen med ett gemensamt felmeddelande borta, och man kan kartlägga
+    // Göhlins kundregister med en namnlista. Låsbeskedet är kvar: det kostar
+    // fem försök mot ett och samma namn att komma åt.
     return NextResponse.json(
-      {
-        fel:
-          kvar > 0
-            ? `${FEL} ${kvar} försök kvar innan kontot låses.`
-            : `Kontot är nu låst i ${LOCK_MINUTES} minuter.`,
-      },
+      { fel: failed >= MAX_FAILED ? `Kontot är nu låst i ${LOCK_MINUTES} minuter.` : FEL },
       { status: 401 },
     );
   }

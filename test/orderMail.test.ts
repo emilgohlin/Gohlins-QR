@@ -45,3 +45,17 @@ test("radantalet räknas i singular och plural", () => {
     orderMailText({ ...order, lines: order.lines.slice(0, 1) }).includes("Totalt 1 rad."),
   );
 });
+
+test("decimaler stryks utan att lämna ett avbrutet tal", () => {
+  const rad = (q: number) =>
+    orderMailText({ ...order, lines: [{ ...order.lines[0], quantity: q }] })
+      .split("\n")
+      .find((r) => r.startsWith("1."))!;
+  // 2,001 blev tidigare "2," – ett antal som ser ut som en avbruten inmatning.
+  assert.ok(rad(2.001).includes("2 st"), rad(2.001));
+  assert.ok(rad(4).includes("4 st"), rad(4));
+  assert.ok(rad(2.5).includes("2,5 st"), rad(2.5));
+  assert.ok(rad(0.25).includes("0,25 st"), rad(0.25));
+  assert.ok(rad(100).includes("100 st"), rad(100));
+  assert.ok(rad(0.1).includes("0,1 st"), rad(0.1));
+});

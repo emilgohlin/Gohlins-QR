@@ -79,7 +79,10 @@ export function mejlKonfigurerat(): boolean {
     process.env.GRAPH_TENANT_ID &&
       process.env.GRAPH_CLIENT_ID &&
       process.env.GRAPH_CLIENT_SECRET &&
-      process.env.ORDER_EMAIL_FROM,
+      process.env.ORDER_EMAIL_FROM &&
+      // Mottagaren hör hit. Utan den finns ingen att skicka till, och ett mejl
+      // utan mottagare är inte ett konfigurerat utskick.
+      process.env.ORDER_EMAIL_TO,
   );
 }
 

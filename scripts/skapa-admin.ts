@@ -7,7 +7,8 @@
 //   npm run skapa-admin -- --namn "Emil"
 //
 // Utan --kod slumpas en fram och skrivs ut en gång.
-// Finns kontot redan: --byt-kod sätter en ny.
+// Finns kontot redan: --byt-kod sätter en ny, --avaktivera stänger av det och
+// --aktivera öppnar det igen.
 
 import { createClient } from "@supabase/supabase-js";
 import { randomBytes } from "node:crypto";
@@ -39,12 +40,13 @@ async function main() {
   if (!namn) avbryt('Ange namnet: --namn "Emil"');
 
   let kod = arg("kod")?.trim();
-  if (!kod) {
+  const baraStatus = (flag("avaktivera") || flag("aktivera")) && !flag("byt-kod");
+  if (!kod && !baraStatus) {
     // base64url ur slumpbytes: lätt att läsa upp i telefon, inga tecken som
     // försvinner i kopiering.
     kod = randomBytes(12).toString("base64url");
     console.log(`\n  Slumpad kod: ${kod}`);
-  } else if (kod.length < MIN_LÄNGD) {
+  } else if (kod && kod.length < MIN_LÄNGD) {
     avbryt(
       `Koden är ${kod.length} tecken; minst ${MIN_LÄNGD} krävs.\n` +
         "    Kontot ser alla kunders ordrar – det är inte platsen att spara tecken.",
@@ -71,13 +73,26 @@ async function main() {
     );
   }
 
-  if (befintlig && !flag("byt-kod")) {
+  const ändrar = flag("byt-kod") || flag("avaktivera") || flag("aktivera");
+  if (befintlig && !ändrar) {
     avbryt(
       `${befintlig.name} finns redan som "${login}".\n` +
-        "    Lägg till --byt-kod för att sätta en ny kod.",
+        "    --byt-kod sätter en ny kod, --avaktivera stänger av kontot.",
     );
   }
 
+  if (befintlig && (flag("avaktivera") || flag("aktivera"))) {
+    const active = flag("aktivera");
+    const { error } = await db
+      .from("staff_accounts")
+      .update({ active, failed_count: 0, locked_until: null })
+      .eq("id", befintlig.id);
+    if (error) avbryt(`Kunde inte ändra kontots status: ${error.message}`);
+    console.log(`\n  ✓ ${befintlig.name}s konto är nu ${active ? "öppet" : "avstängt"}.\n`);
+    if (!flag("byt-kod")) return;
+  }
+
+  if (!kod) avbryt("Ingen kod att sätta.");
   const { pin_hash, pin_salt } = await hashPin(kod);
 
   if (befintlig) {
