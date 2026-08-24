@@ -42,6 +42,8 @@ export type Order = {
   account_id: string;
   order_number: string;
   reference: string;
+  /** Kundens eget märke eller ordernummer. Frivilligt. */
+  marking: string | null;
   status: "utkast" | "skickad" | "misslyckad";
   sent_at: string | null;
   email_to: string | null;
@@ -105,6 +107,7 @@ export type Database = {
           Order,
           | Genererad
           | "order_number"
+          | "marking"
           | "status"
           | "sent_at"
           | "email_to"

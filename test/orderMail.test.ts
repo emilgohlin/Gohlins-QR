@@ -59,3 +59,11 @@ test("decimaler stryks utan att lämna ett avbrutet tal", () => {
   assert.ok(rad(100).includes("100 st"), rad(100));
   assert.ok(rad(0.1).includes("0,1 st"), rad(0.1));
 });
+
+test("märket står med när det finns, och saknas annars", () => {
+  const med = orderMailText({ ...order, marking: "Projekt Ekhagen" });
+  assert.ok(med.includes("Märke/ordernr: Projekt Ekhagen"), med);
+  // Utan märke ska ingen tom rad stå kvar – den ser ut som något som glömts.
+  const utan = orderMailText({ ...order, marking: undefined });
+  assert.ok(!utan.includes("Märke"), utan);
+});

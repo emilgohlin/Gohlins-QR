@@ -42,6 +42,14 @@ export interface OrderOut {
   customerName: string;
   /** Referensen kunden fyllde i – personen som ska ha orderbekräftelsen. */
   reference: string;
+  /**
+   * Kundens eget märke eller ordernummer, tomt när hen inte har något.
+   *
+   * Går ut som GoodsLabeling/Row1 — fältet Monitor skyltar godset med. Det är
+   * rätt plats: märket ska följa med kollit hela vägen, inte bara stå i en
+   * kommentar någon läser en gång.
+   */
+  marking?: string;
   lines: OrderLineOut[];
 }
 
@@ -110,7 +118,7 @@ export function buildOrders420(order: OrderOut): string {
     `<References>` +
     `<BuyerReference>${esc(order.reference)}</BuyerReference>` +
     `<BuyerComment />` +
-    `<GoodsLabeling><Row1 /><Row2 /></GoodsLabeling>` +
+    `<GoodsLabeling><Row1>${esc(order.marking ?? "")}</Row1><Row2 /></GoodsLabeling>` +
     `</References>` +
     `<Terms>` +
     `<CustomerInvoiceCode>${esc(order.customerNumber)}</CustomerInvoiceCode>` +

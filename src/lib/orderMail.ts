@@ -25,6 +25,8 @@ export interface OrderMailInput {
   customerNumber: string;
   customerName: string;
   reference: string;
+  /** Kundens eget märke eller ordernummer. Tomt när hen inte angav något. */
+  marking?: string;
   /** Kundens mejladress, dit innesälj svarar. */
   replyTo?: string;
   lines: MailLine[];
@@ -69,6 +71,9 @@ export function orderMailText(order: OrderMailInput): string {
     `Ordernummer:  ${order.orderNumber}`,
     `Datum:        ${order.orderDate}`,
     `Er referens:  ${order.reference}`,
+    // Märket står bara med när det finns. En rad med ett tomt värde ser ut som
+    // något som glömts fyllas i.
+    ...(order.marking ? [`Märke/ordernr: ${order.marking}`] : []),
     ...(order.replyTo ? [`Mejl:         ${order.replyTo}`] : []),
     "",
     table,
@@ -88,6 +93,7 @@ export function buildOrderMail(order: OrderMailInput, to: string[]): Mail {
     customerNumber: order.customerNumber,
     customerName: order.customerName,
     reference: order.reference,
+    marking: order.marking,
     lines: order.lines,
   };
   return {

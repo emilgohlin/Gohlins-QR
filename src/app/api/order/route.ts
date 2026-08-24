@@ -36,8 +36,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ fel: "Du är utloggad. Logga in igen." }, { status: 401 });
   }
 
-  const body = (await request.json()) as { reference?: string; lines?: InkommandeRad[] };
+  const body = (await request.json()) as {
+    reference?: string;
+    marking?: string;
+    lines?: InkommandeRad[];
+  };
   const reference = body.reference?.trim();
+  // Frivilligt: alla kunder har inte ett eget ordernummer, och ett tvingande
+  // fält hade fyllts i med ett bindestreck.
+  const marking = body.marking?.trim() || null;
   if (!reference) {
     return NextResponse.json({ fel: "Fyll i vem ordern gäller (er referens)." }, { status: 400 });
   }
@@ -85,10 +92,14 @@ export async function POST(request: Request) {
 
   const { data: order, error: orderFel } = await db()
     .from("orders")
-    .insert({ account_id: session.id, reference })
+    .insert({ account_id: session.id, reference, marking })
     .select("id, order_number")
     .single();
   if (orderFel || !order) {
+    // Samma lärdom som i inloggningarna: ett databasfel som bara blir "försök
+    // igen" mot kunden och tystnad i loggen är det dyraste felet att leta
+    // efter. En saknad kolumn ser annars ut som en tillfällig strul.
+    console.error("Ordern kunde inte sparas", orderFel);
     return NextResponse.json(
       { fel: "Ordern kunde inte sparas. Försök igen." },
       { status: 500 },
@@ -107,6 +118,7 @@ export async function POST(request: Request) {
     })),
   );
   if (radFel) {
+    console.error("Orderraderna kunde inte sparas", radFel);
     return NextResponse.json({ fel: "Raderna kunde inte sparas." }, { status: 500 });
   }
 
@@ -124,6 +136,7 @@ export async function POST(request: Request) {
       customerNumber: session.kundnr,
       customerName: session.companyName,
       reference,
+      marking: marking ?? undefined,
       replyTo: konto?.contact_email ?? undefined,
       lines: rader,
     },

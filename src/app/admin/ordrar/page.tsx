@@ -28,7 +28,7 @@ export default async function Ordersidan() {
 
   const { data: ordrar } = await db()
     .from("orders")
-    .select("id, account_id, order_number, reference, status, error, created_at, sent_at, handled_at, handled_by")
+    .select("id, account_id, order_number, reference, marking, status, error, created_at, sent_at, handled_at, handled_by")
     .order("created_at", { ascending: false })
     .limit(ANTAL);
 
@@ -55,6 +55,7 @@ export default async function Ordersidan() {
       kundnr: konto?.kundnr ?? "",
       mejl: konto?.contact_email ?? null,
       referens: order.reference,
+      märke: order.marking,
       status: order.status,
       fel: order.error,
       skapad: order.created_at,

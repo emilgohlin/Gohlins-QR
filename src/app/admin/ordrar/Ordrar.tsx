@@ -24,6 +24,7 @@ export interface AdminOrder {
   kundnr: string;
   mejl: string | null;
   referens: string;
+  märke: string | null;
   status: string;
   fel: string | null;
   skapad: string;
@@ -192,6 +193,12 @@ export default function Ordrar({
 
                 <p className="mt-2 text-sm text-gray-700">
                   Referens: <span className="font-medium">{order.referens}</span>
+                  {order.märke && (
+                    <>
+                      {" · "}Märke/ordernr:{" "}
+                      <span className="font-medium">{order.märke}</span>
+                    </>
+                  )}
                   {order.mejl && <span className="text-gray-500"> · {order.mejl}</span>}
                 </p>
 

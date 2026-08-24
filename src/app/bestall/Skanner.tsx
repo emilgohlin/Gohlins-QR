@@ -17,6 +17,17 @@ import { useEffect, useRef, useState } from "react";
 interface Props {
   onKod: (raw: string) => void;
   onStäng: () => void;
+  /**
+   * Pausar AVLÄSNINGEN, inte kameran.
+   *
+   * Efter en träff ska bilden ligga kvar och strömmen fortsätta rulla — då är
+   * återupptagningen omedelbar. Stängde vi av kameran skulle den behöva starta
+   * om för varje artikel, och en kamera tar en sekund på sig. En sekund per rad
+   * är en evighet när man står vid hyllan med tjugo artiklar kvar.
+   */
+  pausad: boolean;
+  /** Visas i stället för standardfoten – träffrutan eller avslagsrutan. */
+  children?: React.ReactNode;
 }
 
 /** Samma kod ignoreras så länge efter en träff. Lång nog att hinna flytta
@@ -32,7 +43,7 @@ interface BarcodeDetectorLike {
 }
 type BarcodeDetectorCtor = new (options?: { formats?: string[] }) => BarcodeDetectorLike;
 
-export default function Skanner({ onKod, onStäng }: Props) {
+export default function Skanner({ onKod, onStäng, pausad, children }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [fel, setFel] = useState<string | null>(null);
   // Callbacken byts varje gång föräldern ritas om. Utan ref hade kameran
@@ -43,6 +54,13 @@ export default function Skanner({ onKod, onStäng }: Props) {
   useEffect(() => {
     onKodRef.current = onKod;
   }, [onKod]);
+
+  // Pausläget läses via ref inifrån avläsningsslingan. Låg det i effektens
+  // beroenden skulle kameran startas om varje gång en artikel bekräftas.
+  const pausadRef = useRef(pausad);
+  useEffect(() => {
+    pausadRef.current = pausad;
+  }, [pausad]);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -83,6 +101,10 @@ export default function Skanner({ onKod, onStäng }: Props) {
           const detector = new Detector({ formats: ["qr_code"] });
           const läs = async () => {
             if (stoppad) return;
+            if (pausadRef.current) {
+              rafId = requestAnimationFrame(läs);
+              return;
+            }
             try {
               const koder = await detector.detect(video);
               if (koder.length) träff(koder[0].rawValue);
@@ -97,7 +119,7 @@ export default function Skanner({ onKod, onStäng }: Props) {
           if (stoppad) return;
           const reader = new BrowserQRCodeReader();
           zxingControls = await reader.decodeFromVideoElement(video, (result) => {
-            if (result) träff(result.getText());
+            if (result && !pausadRef.current) träff(result.getText());
           });
         }
       } catch (error) {
@@ -130,9 +152,14 @@ export default function Skanner({ onKod, onStäng }: Props) {
           muted
           className="h-full w-full object-cover"
         />
-        {/* Siktet. Visar var kameran läser, så kunden vet var dekalen ska hållas. */}
+        {/* Siktet. Visar var kameran läser, så kunden vet var dekalen ska hållas.
+            Under pausen tonas det ned – kameran letar inte, och det ska synas. */}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="h-56 w-56 rounded-3xl border-4 border-white/80 shadow-[0_0_0_100vmax_rgba(0,0,0,0.45)]" />
+          <div
+            className={`h-56 w-56 rounded-3xl border-4 shadow-[0_0_0_100vmax_rgba(0,0,0,0.45)] transition-colors ${
+              pausad ? "border-white/25" : "border-white/80"
+            }`}
+          />
         </div>
         {fel && (
           <p
@@ -144,17 +171,23 @@ export default function Skanner({ onKod, onStäng }: Props) {
         )}
       </div>
 
-      <div className="bg-black px-6 pt-4 pb-8 text-center">
-        <p className="text-sm text-white/70">
-          Håll QR-koden på hyllkanten i rutan. Varje kod läggs till som en rad.
-        </p>
-        <button
-          type="button"
-          onClick={onStäng}
-          className="mt-4 w-full rounded-xl bg-white px-4 py-4 text-lg font-medium text-gray-900"
-        >
-          Klar
-        </button>
+      {/* Foten. pb tar höjd för iPhones hemindikator – utan den hamnar
+          knappen delvis under svepfältet och går inte att träffa. */}
+      <div className="bg-black px-4 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+        {children ?? (
+          <div className="text-center">
+            <p className="text-sm text-white/70">
+              Håll QR-koden på hyllkanten i rutan.
+            </p>
+            <button
+              type="button"
+              onClick={onStäng}
+              className="mt-4 min-h-14 w-full rounded-xl bg-white px-4 text-lg font-bold text-gray-900"
+            >
+              Klar
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

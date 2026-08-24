@@ -124,6 +124,18 @@ test("inget pris påstås när vi inte känner priserna", async () => {
   for (const l of lines) assert.equal(l.unitPrice, null);
 });
 
+test("kundens märke hamnar i GoodsLabeling", () => {
+  // Row1 är fältet Monitor skyltar godset med – märket ska följa med kollit,
+  // inte bara stå i en kommentar någon läser en gång.
+  const xml = buildOrders420({ ...order, marking: "IO-4471" });
+  assert.ok(xml.includes("<Row1>IO-4471</Row1>"), xml);
+  // Utan märke ska taggen vara tom, inte innehålla "undefined".
+  assert.ok(buildOrders420(order).includes("<Row1></Row1>"));
+  // Specialtecken måste escapas, annars går filen inte att läsa.
+  assert.ok(buildOrders420({ ...order, marking: 'A & B "C"' })
+    .includes("<Row1>A &amp; B &quot;C&quot;</Row1>"));
+});
+
 test("en tom order ger en läsbar fil utan rader", async () => {
   const parseMonitorOrder = await loadParser();
   const parsed = parseMonitorOrder(buildOrders420({ ...order, lines: [] }));
