@@ -13,7 +13,7 @@ tills affärssystemskopplingen finns.
 
 1. `npm install`
 2. Skapa ett **eget** Supabase-projekt (inte samma som the-brain — se AGENTS.md).
-3. Kör `supabase/migrations/0001_init.sql` i SQL-editorn.
+3. Kör migrationerna i `supabase/migrations/` i SQL-editorn, i nummerordning.
 4. Kopiera `.env.example` till `.env.local` och fyll i.
 5. `npm run dev`
 
@@ -27,6 +27,19 @@ finns: skrivs kontot upp med SQL i Supabases editor ligger PIN-koden kvar
 läsbar i frågehistoriken.
 
 Tappas en kod bort går den inte att läsa ut — sätt en ny med `--byt-pin`.
+
+## Adminvyn
+
+Innesälj ser alla inkomna ordrar på `/admin`, med artikelnummer, benämning och
+antal, och kan kvittera vad som är inlagt. Ordrarna syns där så fort kunden
+skickar dem — mejlet är en bekvämlighet, inte vägen in.
+
+Lägg upp ett personalkonto:
+
+    npm run skapa-admin -- --namn "Emil"
+
+Utan `--kod` slumpas en fram och skrivs ut en gång. Koden är minst 12 tecken:
+kontot ser alla kunders ordrar.
 
 ## Mejlet
 

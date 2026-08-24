@@ -47,6 +47,22 @@ export type Order = {
   email_to: string | null;
   xml: string | null;
   error: string | null;
+  /** Satt när någon på Göhlins tagit hand om ordern. Null = ligger kvar. */
+  handled_at: string | null;
+  handled_by: string | null;
+  created_at: string;
+}
+
+export type StaffAccount = {
+  id: string;
+  login_name: string;
+  name: string;
+  pin_hash: string;
+  pin_salt: string;
+  active: boolean;
+  failed_count: number;
+  locked_until: string | null;
+  last_login_at: string | null;
   created_at: string;
 }
 
@@ -85,7 +101,18 @@ export type Database = {
       >;
       orders: Table<
         Order,
-        Omit<Order, Genererad | "order_number" | "status" | "sent_at" | "email_to" | "xml" | "error"> &
+        Omit<
+          Order,
+          | Genererad
+          | "order_number"
+          | "status"
+          | "sent_at"
+          | "email_to"
+          | "xml"
+          | "error"
+          | "handled_at"
+          | "handled_by"
+        > &
           Partial<Order>,
         Partial<Order>
       >;
@@ -96,6 +123,15 @@ export type Database = {
         Partial<OrderLine>
       >;
       articles: Table<Article, Article, Partial<Article>>;
+      staff_accounts: Table<
+        StaffAccount,
+        Omit<
+          StaffAccount,
+          Genererad | "active" | "failed_count" | "locked_until" | "last_login_at"
+        > &
+          Partial<StaffAccount>,
+        Partial<StaffAccount>
+      >;
     };
     Views: Record<never, never>;
     Functions: Record<never, never>;

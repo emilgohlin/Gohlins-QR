@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "tsx --test test/*.test.ts",
-    "skapa-kund": "tsx --env-file=.env.local scripts/skapa-kund.ts"
+    "skapa-kund": "tsx --env-file=.env.local scripts/skapa-kund.ts",
+    "skapa-admin": "tsx --env-file=.env.local scripts/skapa-admin.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

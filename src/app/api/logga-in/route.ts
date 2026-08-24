@@ -31,11 +31,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ fel: FEL }, { status: 400 });
   }
 
-  const { data } = await db()
+  const { data, error: dbFel } = await db()
     .from("customer_accounts")
     .select("id, kundnr, company_name, pin_hash, pin_salt, active, failed_count, locked_until")
     .eq("login_name", loginName(namn))
     .maybeSingle();
+  // Se kommentaren i admin/logga-in: ett databasfel som ser ut som fel PIN är
+  // det dyraste felet att leta efter.
+  if (dbFel) console.error("Inloggning mot customer_accounts misslyckades", dbFel);
   const konto = data as Konto | null;
 
   if (!konto || !konto.active) {

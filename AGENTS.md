@@ -26,6 +26,14 @@ Två regler följer av det:
    eller authenticated-nyckeln kommer åt något. Skyddet ligger alltså inte i en
    policy man kan råka skriva fel, utan i att nyckeln aldrig lämnar servern.
 
+Sedan finns **adminvyn** på `/admin`, där innesälj ser alla kunders ordrar.
+Den har ett eget kontoslag i en egen tabell (`staff_accounts`) och en egen
+sessionskaka. Att rollen inte är en flagga på kundkontot är hela poängen: en
+boolean i samma tabell är en rad från att någon sätter den på fel konto, och då
+ser en kund alla andra kunders ordrar. Två tabeller kan inte förväxlas.
+Personalens kod är minst 12 tecken — kundens fyrsiffriga PIN duger för ett konto
+som ser sina egna ordrar, inte för ett som ser allas.
+
 Inloggningen är företagsnamn + PIN. PIN-koden lagras som scrypt-hash med salt,
 aldrig i klartext, och kontot låses en stund efter upprepade felaktiga försök —
 ett företagsnamn är gissningsbart, så det är försöken som måste kosta.
