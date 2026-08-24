@@ -145,7 +145,7 @@ export default function Bestallning({ företag, kundnr }: Props) {
   if (skickad) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-12 text-center">
-        <p className="text-5xl">✓</p>
+        <p className="text-5xl text-gohlins">✓</p>
         <h1 className="mt-4 text-2xl font-semibold">Ordern är skickad</h1>
         <p className="mt-2 text-gray-600">
           Ordernummer <span className="font-medium text-gray-900">{skickad}</span>. Innesälj
@@ -154,7 +154,7 @@ export default function Bestallning({ företag, kundnr }: Props) {
         <button
           type="button"
           onClick={() => setSkickad(null)}
-          className="mt-8 w-full rounded-xl bg-gray-900 px-4 py-4 text-lg font-medium text-white"
+          className="mt-8 w-full rounded-xl bg-gohlins px-4 py-4 text-lg font-bold text-white transition-colors hover:bg-gohlins-mork"
         >
           Beställ mer
         </button>
@@ -180,7 +180,7 @@ export default function Bestallning({ företag, kundnr }: Props) {
           setVarning(null);
           setSkannar(true);
         }}
-        className="mt-6 w-full rounded-2xl bg-gohlins px-4 py-6 text-xl font-semibold text-gray-900"
+        className="mt-6 w-full rounded-2xl bg-gohlins px-4 py-6 text-xl font-bold text-white transition-colors hover:bg-gohlins-mork"
       >
         Skanna QR-kod
       </button>
@@ -267,7 +267,7 @@ export default function Bestallning({ företag, kundnr }: Props) {
       >
         <div className="mx-auto max-w-md">
           {fel && (
-            <p role="alert" className="mb-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">
+            <p role="alert" className="mb-3 rounded-xl border-l-4 border-gohlins bg-gohlins-ljus px-4 py-3 text-sm text-gray-900">
               {fel}
             </p>
           )}
@@ -281,7 +281,7 @@ export default function Bestallning({ företag, kundnr }: Props) {
           <button
             type="submit"
             disabled={skickar || rader.length === 0 || !referens.trim()}
-            className="mt-3 w-full rounded-xl bg-gray-900 px-4 py-4 text-lg font-medium text-white disabled:opacity-40"
+            className="mt-3 w-full rounded-xl bg-gohlins px-4 py-4 text-lg font-bold text-white transition-colors hover:bg-gohlins-mork disabled:opacity-40"
           >
             {skickar
               ? "Skickar…"

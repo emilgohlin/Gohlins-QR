@@ -1,18 +1,57 @@
 @import "tailwindcss";
 
-@theme {
-  /* Göhlins gult, som på skyltarna. Används sparsamt: till det som ska tryckas
-     på, inget annat. */
-  --color-gohlins: #f5b800;
-  --color-gohlins-mork: #d19e00;
+/* ─────────────────────────────────────────────────────────────
+   Göhlins grafiska profil
+   ─────────────────────────────────────────────────────────────
+   Montserrat ligger självvärdad i public/typsnitt/ i stället för att hämtas
+   från Google Fonts. Två skäl: appen används i lagerlokaler med skral täckning,
+   och ett typsnitt som hämtas från en tredje part är en begäran till om varje
+   kund som loggar in.
+
+   Bara två vikter tas med. Manualen har fler, men varje fil är en fil telefonen
+   ska ladda ner innan texten syns. */
+
+@font-face {
+  font-family: "Montserrat";
+  src: url("/typsnitt/Montserrat-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  /* swap: hellre systemtypsnitt en kort stund än en tom skärm. */
+  font-display: swap;
 }
 
-/* Appen används på en telefon i en lagerhylla, ofta med handskar. Inget ska
-   vara mindre än att det går att träffa. */
+@font-face {
+  font-family: "Montserrat";
+  src: url("/typsnitt/Montserrat-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: "Montserrat", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* Logotypens röda, hämtad ur filen och inte gissad: #CA3C35. */
+  --color-gohlins: #ca3c35;
+  /* Nedtryckt knapp och länkar mot ljus botten – mörkare för att klara
+     kontrastkravet mot vitt. */
+  --color-gohlins-mork: #a32e28;
+  /* Svag ton för ytor som ska höra ihop med märket utan att skrika. */
+  --color-gohlins-ljus: #fbedec;
+}
+
 html {
   -webkit-text-size-adjust: 100%;
 }
 
 body {
   overscroll-behavior-y: contain;
+}
+
+/* Appen används på en telefon i en lagerhylla, ofta med handskar. Inget ska
+   vara mindre än att det går att träffa – och fokusmarkeringen ska synas även
+   i dagsljus. */
+:focus-visible {
+  outline: 2px solid var(--color-gohlins);
+  outline-offset: 2px;
 }

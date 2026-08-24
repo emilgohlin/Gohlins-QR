@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function AdminInloggning() {
   const router = useRouter();
@@ -37,7 +38,18 @@ export default function AdminInloggning() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-6 py-12">
-      <h1 className="text-2xl font-semibold tracking-tight">Göhlins order – innesälj</h1>
+      <div className="relative h-16 w-[240px] self-start">
+        <Image
+          src="/gohlins-logotyp.png"
+          alt="Göhlins"
+          fill
+          sizes="240px"
+          priority
+          className="object-cover"
+        />
+      </div>
+
+      <h1 className="mt-6 text-2xl font-bold tracking-tight">Order – innesälj</h1>
       <p className="mt-2 text-sm text-gray-600">Kundernas inkomna ordrar.</p>
 
       <form onSubmit={loggaIn} className="mt-8 space-y-5">
@@ -79,7 +91,7 @@ export default function AdminInloggning() {
         <button
           type="submit"
           disabled={skickar || !namn.trim() || !kod.trim()}
-          className="w-full rounded-xl bg-gray-900 px-4 py-3.5 font-medium text-white disabled:opacity-40"
+          className="w-full rounded-xl bg-gohlins px-4 py-3.5 font-bold text-white transition-colors hover:bg-gohlins-mork disabled:opacity-40"
         >
           {skickar ? "Loggar in…" : "Logga in"}
         </button>

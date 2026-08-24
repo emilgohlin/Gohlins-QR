@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function Inloggning() {
   const router = useRouter();
@@ -39,7 +40,20 @@ export default function Inloggning() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-6 py-12">
-      <h1 className="text-3xl font-semibold tracking-tight">Göhlins Kundorder</h1>
+      {/* Logotypen är en kvadrat med luft runt ordmärket. object-cover visar
+          mittbandet i stället för att krympa hela kvadraten till en frimärke. */}
+      <div className="relative h-16 w-[240px] self-start">
+        <Image
+          src="/gohlins-logotyp.png"
+          alt="Göhlins"
+          fill
+          sizes="240px"
+          priority
+          className="object-cover"
+        />
+      </div>
+
+      <h1 className="mt-6 text-3xl font-bold tracking-tight">Kundorder</h1>
       <p className="mt-2 text-gray-600">
         Logga in, skanna hyllkanten och skicka. Så enkelt ska det vara.
       </p>
@@ -90,7 +104,7 @@ export default function Inloggning() {
         <button
           type="submit"
           disabled={skickar || !namn.trim() || !pin.trim()}
-          className="w-full rounded-xl bg-gray-900 px-4 py-4 text-lg font-medium text-white disabled:opacity-40"
+          className="w-full rounded-xl bg-gohlins px-4 py-4 text-lg font-bold text-white transition-colors hover:bg-gohlins-mork disabled:opacity-40"
         >
           {skickar ? "Loggar in…" : "Logga in"}
         </button>

@@ -143,7 +143,9 @@ export default function Ordrar({
               <li
                 key={order.id}
                 className={`rounded-2xl border bg-white p-4 ${
-                  order.hanterad ? "border-gray-200 opacity-60" : "border-gray-300"
+                  order.hanterad
+                    ? "border-gray-200 opacity-60"
+                    : "border-gray-300 border-l-4 border-l-gohlins"
                 }`}
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -221,7 +223,7 @@ export default function Ordrar({
                     className={`rounded-xl px-4 py-2.5 text-sm font-medium disabled:opacity-40 ${
                       order.hanterad
                         ? "border border-gray-300 text-gray-700"
-                        : "bg-gray-900 text-white"
+                        : "bg-gohlins text-white transition-colors hover:bg-gohlins-mork"
                     }`}
                   >
                     {arbetar === order.id

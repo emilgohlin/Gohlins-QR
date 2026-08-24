@@ -11,7 +11,7 @@ export const viewport: Viewport = {
   // förstora ska få göra det – men sidan ska börja i telefonens bredd.
   width: "device-width",
   initialScale: 1,
-  themeColor: "#111827",
+  themeColor: "#ca3c35",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
