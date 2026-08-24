@@ -10,7 +10,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { readSession } from "@/lib/session";
-import { sendMail } from "@/lib/graph";
+import { sendMail, mejlKonfigurerat } from "@/lib/graph";
 import { buildOrderMail, type MailLine } from "@/lib/orderMail";
 
 interface InkommandeRad {
@@ -114,6 +114,34 @@ export async function POST(request: Request) {
     },
     till,
   );
+
+  if (!mejlKonfigurerat()) {
+    // Avsändarpostlådan är inte uppsatt än. Ordern sparas ändå — allt utom
+    // sista steget ska gå att köra skarpt — men den märks INTE som skickad.
+    // Att skriva "skickad" på en order som ingen fått vore den enda lögn
+    // systemet kan berätta som ingen upptäcker förrän leveransen uteblir.
+    console.info(
+      `\n─── Ordermejl som INTE skickades (avsändaren är inte konfigurerad) ───\n` +
+        `Till: ${till.join(", ")}\nÄmne: ${mail.subject}\n\n${mail.text}\n` +
+        `─── Bilaga ${mail.attachments?.[0].filename} ───\n${mail.attachments?.[0].content}\n`,
+    );
+    await db()
+      .from("orders")
+      .update({
+        status: "misslyckad",
+        error: "Mejlutskicket är inte konfigurerat (GRAPH_* saknas).",
+        xml: mail.attachments?.[0].content,
+      })
+      .eq("id", order.id);
+    return NextResponse.json(
+      {
+        fel:
+          `Ordern är sparad som ${order.order_number}, men mejlutskicket är inte ` +
+          "påslaget än. Ring oss så tar vi den för hand.",
+      },
+      { status: 503 },
+    );
+  }
 
   try {
     await sendMail(mail);

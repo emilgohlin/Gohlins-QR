@@ -66,6 +66,23 @@ export interface Mail {
   attachments?: Attachment[];
 }
 
+/**
+ * Går det att skicka mejl alls?
+ *
+ * Avsändarpostlådan sätts upp efter att appen tagits i bruk, och tills dess ska
+ * ordern kunna testas hela vägen ändå. Kontrollen läser process.env direkt och
+ * inte env.ts, som kastar när något saknas — här är ett tomt värde ett svar,
+ * inte ett fel.
+ */
+export function mejlKonfigurerat(): boolean {
+  return Boolean(
+    process.env.GRAPH_TENANT_ID &&
+      process.env.GRAPH_CLIENT_ID &&
+      process.env.GRAPH_CLIENT_SECRET &&
+      process.env.ORDER_EMAIL_FROM,
+  );
+}
+
 export async function sendMail(mail: Mail): Promise<void> {
   const from = env.orderEmailFrom();
   const token = await accessToken();

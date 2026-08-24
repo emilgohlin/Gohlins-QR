@@ -10,6 +10,7 @@
 //   npm run skapa-kund -- --kundnr 12345 --namn "Ackwell" --pin 1913
 //
 // Utan --pin slumpas en sexsiffrig kod fram och skrivs ut en gång.
+// Finns kontot redan: --byt-pin sätter ny PIN, --byt-kundnr rättar kundnumret.
 
 import { createClient } from "@supabase/supabase-js";
 import { hashPin, loginName, generatePin, MIN_PIN_LENGTH } from "../src/lib/pin";
@@ -75,11 +76,26 @@ async function main() {
     .eq("login_name", login)
     .maybeSingle();
 
-  if (befintlig && !flag("byt-pin")) {
+  if (befintlig && !flag("byt-pin") && !flag("byt-kundnr")) {
     avbryt(
       `${befintlig.company_name} finns redan som "${login}".\n` +
-        "    Lägg till --byt-pin för att sätta en ny PIN på kontot i stället.",
+        "    Lägg till --byt-pin för att sätta en ny PIN, eller --byt-kundnr\n" +
+        "    för att rätta kundnumret.",
     );
+  }
+
+  // Kundnumret kan rättas i efterhand. Det behövs: appen tas i bruk innan
+  // affärssystemskopplingen finns, och då mejlas ordern till en människa som
+  // känner igen kunden på namnet. Numret måste däremot stämma INNAN
+  // orderinläsningen börjar läsa filen, för då är det numret som gäller.
+  if (befintlig && flag("byt-kundnr")) {
+    const { error } = await db
+      .from("customer_accounts")
+      .update({ kundnr })
+      .eq("id", befintlig.id);
+    if (error) avbryt(`Kunde inte byta kundnummer: ${error.message}`);
+    console.log(`\n  ✓ ${befintlig.company_name} har nu kundnr ${kundnr}.`);
+    if (!flag("byt-pin")) return;
   }
 
   const { pin_hash, pin_salt } = await hashPin(pin);
