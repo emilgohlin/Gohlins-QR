@@ -4,8 +4,37 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import { buildOrders420, type OrderOut } from "../src/lib/orders420";
-import type { ParsedOrder } from "../../the-brain/src/lib/order/parseOrder";
 import { DOMParser } from "linkedom";
+
+/**
+ * Formen på det the-brains parser lämnar ifrån sig, skriven här.
+ *
+ * Frestelsen är att importera ParsedOrder från the-brain i stället. Gör man det
+ * kopplas VÅRT BYGGE till att grannprojektet finns på disken — och det gör det
+ * inte på en byggmaskin, eller i en färsk klon. Bygget föll på just det.
+ *
+ * Kopplingen som betyder något är ändå körningen: testet laddar och kör
+ * parsern på riktigt längre ned. Glider formatet isär fallerar assertionerna,
+ * vilket är precis vad testet finns för. En delad typ hade fångat samma sak en
+ * aning tidigare, till priset av att projekten inte längre går att bygga var
+ * för sig — och att de är åtskilda är avsiktligt.
+ */
+interface ParsedOrder {
+  orderNumber: string | null;
+  orderDate: string | null;
+  currency: string | null;
+  customerCode: string | null;
+  customerName: string | null;
+  buyerReference: string | null;
+  lines: {
+    articleNumber: string | null;
+    text: string | null;
+    quantity: number | null;
+    unit: string | null;
+    rowType: string | null;
+    unitPrice: number | null;
+  }[];
+}
 
 // Parsern är skriven för webbläsaren och använder DOMParser. Node har ingen, så
 // testet lånar in en riktig XML-implementation i stället för att vi skriver om
