@@ -1,19 +1,48 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { pathToFileURL } from "node:url";
 import { buildOrders420, type OrderOut } from "../src/lib/orders420";
-// Den RIKTIGA parsern ur the-brain. Testet är hela poängen med formatvalet:
-// kan inläsningen inte läsa vår fil är den värdelös, och det ska ett test säga
-// direkt och inte en kollega på måndag morgon.
-import { parseMonitorOrder } from "../../the-brain/src/lib/order/parseOrder";
+import type { ParsedOrder } from "../../the-brain/src/lib/order/parseOrder";
 import { DOMParser } from "linkedom";
 
 // Parsern är skriven för webbläsaren och använder DOMParser. Node har ingen, så
 // testet lånar in en riktig XML-implementation i stället för att vi skriver om
 // parsern för testets skull – det är just den koden i produktion vi vill mäta
-// mot. Traverseringen använder bara element och attribut, alltså det xmldom
-// täcker – inklusive querySelector, som parsern använder. En skillnad mot
-// webbläsarens DOM skulle ligga i sådant parsern ändå inte rör.
+// mot. linkedom täcker element, attribut och querySelector, alltså allt parsern
+// rör.
 (globalThis as { DOMParser?: unknown }).DOMParser = DOMParser;
+
+/**
+ * Laddar the-brains RIKTIGA orderparser.
+ *
+ * De två projekten är avsiktligt skilda åt, så sökvägen är en lös koppling.
+ * Ligger the-brain inte bredvid går den att peka ut med THE_BRAIN_PATH.
+ *
+ * Saknas den FALLERAR testet, det hoppas inte över. Ett tyst överhoppat test
+ * hade sett grönt ut medan formatet gled isär, och hela poängen med testet är
+ * att fånga just den glidningen.
+ */
+let cached: ((xml: string) => ParsedOrder) | null = null;
+async function loadParser(): Promise<(xml: string) => ParsedOrder> {
+  if (cached) return cached;
+  const root =
+    process.env.THE_BRAIN_PATH ?? path.resolve(__dirname, "../../the-brain");
+  const file = path.join(root, "src", "lib", "order", "parseOrder.ts");
+  if (!fs.existsSync(file)) {
+    throw new Error(
+      `Hittar inte the-brains orderparser på ${file}.\n` +
+        `XML:en måste kunna läsas av orderinläsningen, och det går inte att ` +
+        `kontrollera utan den.\nPeka ut projektet med THE_BRAIN_PATH=/sökväg/till/the-brain npm test`,
+    );
+  }
+  const mod = (await import(pathToFileURL(file).href)) as {
+    parseMonitorOrder: (xml: string) => ParsedOrder;
+  };
+  cached = mod.parseMonitorOrder;
+  return cached;
+}
 
 const order: OrderOut = {
   orderNumber: "K-1001",
@@ -28,7 +57,8 @@ const order: OrderOut = {
   ],
 };
 
-test("the-brains orderinläsning kan läsa vår XML", () => {
+test("the-brains orderinläsning kan läsa vår XML", async () => {
+  const parseMonitorOrder = await loadParser();
   const parsed = parseMonitorOrder(buildOrders420(order));
 
   assert.equal(parsed.orderNumber, "K-1001");
@@ -40,7 +70,8 @@ test("the-brains orderinläsning kan läsa vår XML", () => {
   assert.equal(parsed.lines.length, 3);
 });
 
-test("artikelnummer, antal och enhet kommer fram oförvanskade", () => {
+test("artikelnummer, antal och enhet kommer fram oförvanskade", async () => {
+  const parseMonitorOrder = await loadParser();
   const { lines } = parseMonitorOrder(buildOrders420(order));
 
   assert.equal(lines[0].articleNumber, "7900696");
@@ -57,13 +88,15 @@ test("artikelnummer, antal och enhet kommer fram oförvanskade", () => {
   assert.equal(lines[2].text, 'FÄSTE "L" & vinkel <20>', "escapning måste vara reversibel");
 });
 
-test("inget pris påstås när vi inte känner priserna", () => {
+test("inget pris påstås när vi inte känner priserna", async () => {
+  const parseMonitorOrder = await loadParser();
   const { lines } = parseMonitorOrder(buildOrders420(order));
   // Tomt Each, inte 0.00: ett nollpris hade lästs som en prisavvikelse på 100 %.
   for (const l of lines) assert.equal(l.unitPrice, null);
 });
 
-test("en tom order ger en läsbar fil utan rader", () => {
+test("en tom order ger en läsbar fil utan rader", async () => {
+  const parseMonitorOrder = await loadParser();
   const parsed = parseMonitorOrder(buildOrders420({ ...order, lines: [] }));
   assert.equal(parsed.lines.length, 0);
   assert.equal(parsed.customerCode, "26065");

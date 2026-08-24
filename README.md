@@ -13,4 +13,13 @@ QR-koden på hyllkanten, välj antal, skicka. Ordern mejlas som PDF och XML.
 
 ## Test
 
-`npm test` — kör bland annat XML:en genom the-brains riktiga orderparser.
+`npm test`
+
+Ett av testerna kör vår XML genom **the-brains riktiga orderparser**, för att
+orderinläsningen ska kunna läsa filen. Projekten är i övrigt helt åtskilda, så
+testet letar efter the-brain bredvid det här trädet. Ligger det någon annanstans:
+
+    THE_BRAIN_PATH=/sökväg/till/the-brain npm test
+
+Saknas det fallerar testet i stället för att hoppas över – ett tyst överhoppat
+test hade sett grönt ut medan formatet gled isär.
