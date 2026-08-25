@@ -300,9 +300,7 @@ export default function Ordrar({
                 <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
                   <div className="min-w-0">
                     <h2 className="text-lg font-bold">{order.företag}</h2>
-                    <p className="text-sm text-gray-500">
-                      {order.ordernummer} · {tidpunkt(order.skapad)}
-                    </p>
+                    <p className="text-sm text-gray-500">{tidpunkt(order.skapad)}</p>
                   </div>
                   <span className={`shrink-0 rounded-full px-3 py-1 text-xs ${status.klass}`}>
                     {status.text}
@@ -425,8 +423,16 @@ export default function Ordrar({
 
                 <details className="mt-3">
                   <summary className="cursor-pointer text-xs text-gray-500">
-                    Visa skannade koder
+                    Visa skannade koder och appens ordernummer
                   </summary>
+                  {/* Appens ordernummer står inte i huvudet: bredvid Monitors
+                      eget nummer blir två ordernummer på samma skärm, och det
+                      är förvirring utan nytta för den som registrerar.
+                      Det står däremot KVAR här, för kunden har fått det på sin
+                      kvittens och kan hänvisa till det när hen ringer. */}
+                  <p className="mt-2 text-xs text-gray-500">
+                    Appens ordernummer: <span className="font-mono">{order.ordernummer}</span>
+                  </p>
                   <ul className="mt-2 space-y-1">
                     {order.rader.map((rad, i) => (
                       <li key={i} className="font-mono text-xs break-all text-gray-500">
