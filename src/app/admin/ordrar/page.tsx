@@ -9,8 +9,14 @@ import { readAdminSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import Ordrar, { type AdminOrder } from "./Ordrar";
 
-/** Så många ordrar visas. Fler än så är inte en lista man arbetar ur. */
-const ANTAL = 200;
+/**
+ * Så många ordrar hämtas.
+ *
+ * Taket måste SYNAS när det slår i. En historikflik som tyst slutar vid 500
+ * ordrar ser ut som att det inte finns fler, och den som letar efter en gammal
+ * order drar slutsatsen att den aldrig kom in.
+ */
+const ANTAL = 500;
 
 export default async function Ordersidan() {
   const session = await readAdminSession();
@@ -82,5 +88,12 @@ export default async function Ordersidan() {
     };
   });
 
-  return <Ordrar ordrar={lista} användare={session.name} />;
+  return (
+    <Ordrar
+      ordrar={lista}
+      användare={session.name}
+      kapat={rader.length === ANTAL}
+      tak={ANTAL}
+    />
+  );
 }

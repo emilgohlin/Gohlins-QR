@@ -105,6 +105,8 @@ export interface AdminOrder {
   rader: AdminRad[];
 }
 
+type Flik = "aktiva" | "alla" | "historiska";
+
 function tidpunkt(iso: string): string {
   return new Intl.DateTimeFormat("sv-SE", {
     timeZone: "Europe/Stockholm",
@@ -145,22 +147,35 @@ function mejlstatus(order: AdminOrder): { text: string; klass: string } {
 export default function Ordrar({
   ordrar,
   användare,
+  kapat,
+  tak,
 }: {
   ordrar: AdminOrder[];
   användare: string;
+  /** Sant när listan slog i taket och äldre ordrar inte kom med. */
+  kapat: boolean;
+  tak: number;
 }) {
   const router = useRouter();
-  const [baraOhanterade, setBaraOhanterade] = useState(true);
+  const [flik, setFlik] = useState<Flik>("aktiva");
   const [arbetar, setArbetar] = useState<string | null>(null);
   const [fel, setFel] = useState<string | null>(null);
 
   const ohanterade = ordrar.filter((o) => !o.hanterad);
-  // Ohanterade först, nyast överst inom varje grupp. Listan ska svara på "vad
-  // ligger och väntar" – med filtret avslaget låg det som väntade annars
-  // inblandat bland det som redan var gjort, sorterat på datum.
-  const synliga = baraOhanterade
-    ? ohanterade
-    : [...ohanterade, ...ordrar.filter((o) => o.hanterad)];
+  // Historiken sorteras på NÄR den hanterades, inte när ordern kom in. Letar
+  // man i efterhand letar man efter något man nyss gjorde.
+  const hanterade = ordrar
+    .filter((o) => o.hanterad)
+    .sort((a, b) => (b.hanterad ?? "").localeCompare(a.hanterad ?? ""));
+
+  const synliga =
+    flik === "aktiva"
+      ? ohanterade
+      : flik === "historiska"
+        ? hanterade
+        : // Samtliga: ohanterade först ändå. Även när man tittar på allt är
+          // det som väntar det man ska agera på.
+          [...ohanterade, ...hanterade];
 
   async function kvittera(order: AdminOrder) {
     setArbetar(order.id);
@@ -225,21 +240,49 @@ export default function Ordrar({
         </p>
       )}
 
-      <label className="mt-5 flex items-center gap-2 text-sm text-gray-700">
-        <input
-          type="checkbox"
-          checked={baraOhanterade}
-          onChange={(e) => setBaraOhanterade(e.target.checked)}
-          className="h-4 w-4"
-        />
-        Visa bara det som inte är hanterat
-      </label>
+      {/* Flikar och inte en kryssruta: en kryssruta beskriver ett filter man
+          måste tänka på, flikar beskriver tre vyer man växlar mellan. Antalen
+          står i flikarna, så man ser om det finns något där utan att gå dit. */}
+      <div role="tablist" aria-label="Vilka ordrar som visas" className="mt-5 flex gap-1 rounded-xl bg-gray-100 p-1">
+        {(
+          [
+            ["aktiva", "Aktiva", ohanterade.length],
+            ["alla", "Samtliga", ordrar.length],
+            ["historiska", "Historik", hanterade.length],
+          ] as const
+        ).map(([id, namn, antal]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={flik === id}
+            onClick={() => setFlik(id)}
+            className={`min-h-11 flex-1 rounded-lg px-3 text-sm font-bold transition-colors ${
+              flik === id ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            {namn}
+            <span className={`ml-1.5 font-normal ${flik === id ? "text-gray-500" : "text-gray-400"}`}>
+              {antal}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {kapat && flik !== "aktiva" && (
+        <p className="mt-3 rounded-xl bg-gray-100 px-4 py-2 text-xs text-gray-600">
+          Visar de {tak} senaste ordrarna. Äldre än så finns kvar i databasen men
+          hämtas inte hit.
+        </p>
+      )}
 
       {synliga.length === 0 ? (
         <p className="mt-16 text-center text-gray-500">
           {ordrar.length === 0
             ? "Inga ordrar än. De dyker upp här så fort en kund skickar en."
-            : "Allt är hanterat."}
+            : flik === "aktiva"
+              ? "Allt är hanterat."
+              : "Ingen order är hanterad än."}
         </p>
       ) : (
         <ul className="mt-5 space-y-4">
