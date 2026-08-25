@@ -47,6 +47,16 @@ affärssystemskopplingen kommer byter vi transportväg, inte format.
 `test/orders420.test.ts` kör vår XML genom the-brains riktiga parser. Ändra
 aldrig generatorn utan att testet går igenom.
 
+## Innan du pushar
+
+`npm run kontroll` — typkontroll, lint och tester. `npm test` ensamt räcker
+inte: tsx strippar typerna utan att kontrollera dem, så ett test som använder
+ett fält som inte finns går igenom lokalt och fäller bygget i stället.
+
+Bygget typkontrollerar även `test/`. Ingenting där får referera utanför repot:
+en relativ import till the-brain gör att appen inte går att bygga på en
+maskin där grannprojektet saknas.
+
 ## Konventioner
 
 Kommentarer och gränssnitt på svenska. Kommentera *varför*, inte vad.

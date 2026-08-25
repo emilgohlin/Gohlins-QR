@@ -51,7 +51,10 @@ i organisationen.
 
 ## Test
 
-`npm test`
+`npm run kontroll` kör typkontroll, lint och tester i ett svep. **Kör den före
+push.** `npm test` ensamt räcker inte: testerna körs via tsx, som strippar
+typerna utan att kontrollera dem, så ett test som använder ett fält som inte
+finns går igenom lokalt och fäller bygget på Vercel i stället.
 
 Ett av testerna kör vår XML genom **the-brains riktiga orderparser**, för att
 orderinläsningen ska kunna läsa filen. Projekten är i övrigt helt åtskilda, så

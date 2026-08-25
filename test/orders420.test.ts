@@ -26,6 +26,7 @@ interface ParsedOrder {
   customerCode: string | null;
   customerName: string | null;
   buyerReference: string | null;
+  deliveryName: string | null;
   lines: {
     articleNumber: string | null;
     text: string | null;
