@@ -368,35 +368,45 @@ export default function Ordrar({
 
                 <div className="mt-3 overflow-x-auto">
                   <table className="w-full text-sm">
+                    {/* Artikelnr och antal ligger BREDVID varandra: det är de
+                        två värden som skrivs in efter varandra i Monitor, och
+                        med benämningen emellan tvingas blicken fram och
+                        tillbaka över raden för varje artikel.
+                        Den lodräta linjen är inte dekoration. Två tal intill
+                        varandra utan avgränsare läses lätt som ett, och
+                        "100012 3" är precis den sortens hopblandning som ger
+                        en order på tre av fel artikel. */}
                     <thead className="text-left text-xs uppercase tracking-wide text-gray-500">
                       <tr>
-                        <th className="pb-1 pr-3 font-medium">Artikelnr</th>
-                        <th className="pb-1 pr-3 font-medium">Benämning</th>
-                        <th className="pb-1 text-right font-medium">Antal</th>
+                        <th className="pb-1 pr-2 font-medium">Artikelnr</th>
+                        <th className="border-l border-gray-300 pb-1 pl-3 pr-3 text-right font-medium">
+                          Antal
+                        </th>
+                        <th className="pb-1 pl-4 font-medium">Benämning</th>
                       </tr>
                     </thead>
                     <tbody>
                       {order.rader.map((rad, i) => (
                         <tr key={i} className="border-t border-gray-100 align-middle">
-                          <td className="py-1 pr-3">
+                          <td className="w-px whitespace-nowrap py-1 pr-2">
                             <Kopiera
                               värde={rad.artikelnummer}
                               etikett="artikelnummer"
                               className="-ml-2 font-mono text-base font-bold"
                             />
                           </td>
-                          <td className="py-1 pr-3">
+                          {/* Antalet är det andra värdet som skrivs in, och en
+                              siffra som läses fel blir en felleverans. Stort,
+                              fetstilt och med tabellsiffror så kolumnen går att
+                              läsa rakt nedåt. */}
+                          <td className="w-px whitespace-nowrap border-l border-gray-300 py-1 pl-3 pr-3 text-right text-base font-bold tabular-nums">
+                            {antal(rad.antal)}{" "}
+                            <span className="text-sm font-normal text-gray-500">{rad.enhet}</span>
+                          </td>
+                          <td className="py-1 pl-4">
                             {rad.benämning || (
                               <span className="text-gray-400">(ingen benämning i koden)</span>
                             )}
-                          </td>
-                          {/* Antalet är det andra värdet som skrivs in, och en
-                              siffra som läses fel blir en felleverans. Stort,
-                              fetstilt och högerställt så kolumnen går att
-                              läsa nedåt. */}
-                          <td className="whitespace-nowrap py-1 text-right text-base font-bold tabular-nums">
-                            {antal(rad.antal)}{" "}
-                            <span className="text-sm font-normal text-gray-500">{rad.enhet}</span>
                           </td>
                         </tr>
                       ))}
