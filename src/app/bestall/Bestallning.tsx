@@ -18,6 +18,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { parseScan } from "@/lib/qr";
 import Skanner from "./Skanner";
 
@@ -212,6 +213,14 @@ export default function Bestallning({ företag, kundnr, mottagare }: Props) {
         >
           Beställ mer
         </button>
+        {/* Härifrån följer kunden ordern. Länken står just här för att det är
+            nu hen undrar vad som händer härnäst. */}
+        <Link
+          href="/bestall/ordrar"
+          className="mt-3 block py-2 text-sm text-gohlins-mork underline"
+        >
+          Följ dina ordrar
+        </Link>
       </main>
     );
   }
@@ -222,9 +231,14 @@ export default function Bestallning({ företag, kundnr, mottagare }: Props) {
         <h1 className="truncate text-xl font-bold">{företag}</h1>
         <p className="text-sm text-gray-500">Kundnr {kundnr}</p>
       </div>
-      <button type="button" onClick={loggaUt} className="shrink-0 text-sm text-gray-500 underline">
-        Logga ut
-      </button>
+      <div className="flex shrink-0 flex-col items-end gap-1 text-sm">
+        <Link href="/bestall/ordrar" className="text-gohlins-mork underline">
+          Mina ordrar
+        </Link>
+        <button type="button" onClick={loggaUt} className="text-gray-500 underline">
+          Logga ut
+        </button>
+      </div>
     </header>
   );
 
