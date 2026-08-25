@@ -15,7 +15,9 @@
 // Finns kontot redan:
 //   --byt-pin                   sätter en ny PIN
 //   --byt-kundnr                rättar kundnumret
-//   --tidigare "gamla namnet"   byter namn på kontot
+//   --tidigare "gamla namnet"   byter visningsnamn på kontot
+//   --login "namn"              sätter inloggningsnamnet uttryckligen
+//   --anteckning "text"         sådant innesälj ska se vid varje order
 //   --avaktivera / --aktivera   stänger av eller öppnar kontot
 //
 // Flaggorna går att kombinera. Ett namnbyte behåller kontots ordrar; att skapa
@@ -48,7 +50,8 @@ async function main() {
   // Ett rent namnbyte rör det inte, och ska då inte behöva upprepa det.
   const ändrarBefintligt =
     Boolean(tidigare) || flag("byt-pin") || flag("byt-kundnr") ||
-    flag("avaktivera") || flag("aktivera");
+    flag("avaktivera") || flag("aktivera") || arg("anteckning") !== undefined ||
+    arg("login") !== undefined;
   const behöverKundnr = !ändrarBefintligt || flag("byt-kundnr");
   if (behöverKundnr && !kundnr) {
     avbryt(
@@ -83,12 +86,27 @@ async function main() {
     );
   }
 
-  const login = loginName(namn);
+  /**
+   * Inloggningsnamnet, som INTE följer med automatiskt vid ett namnbyte.
+   *
+   * "Akwel" heter formellt "Akwel Sweden AB", men det är "akwel" kunden knappar
+   * in på en telefon. Lät vi visningsnamnet styra skulle en rättelse av
+   * företagsnamnet tyst göra kundens inloggning ogiltig — hen får "fel
+   * företagsnamn eller PIN" och ingen aning om varför. Vid namnbyte behålls
+   * därför det gamla, om inte --login säger annat.
+   */
+  const uttryckligtLogin = arg("login")?.trim();
+  const login = uttryckligtLogin
+    ? loginName(uttryckligtLogin)
+    : tidigare
+      ? loginName(tidigare)
+      : loginName(namn);
+
   const db = createClient(url, key, { auth: { persistSession: false } });
 
   // Byter kontot namn slås det upp på det GAMLA namnet — det nya finns ju inte
   // i databasen än.
-  const uppslag = tidigare ? loginName(tidigare) : login;
+  const uppslag = tidigare ? loginName(tidigare) : loginName(namn);
   const { data: befintlig } = await db
     .from("customer_accounts")
     .select("id, company_name")
@@ -116,7 +134,10 @@ async function main() {
       if (error) avbryt(`Kunde inte byta namn: ${error.message}`);
       console.log(
         `\n  ✓ ${befintlig.company_name} heter nu ${namn}.\n` +
-          `      Loggar in med:  ${login}  (tidigare "${uppslag}")`,
+          `      Loggar in med:  ${login}` +
+          (login === uppslag
+            ? "  (oförändrat – kundens inloggning fungerar som förut)"
+            : `  (tidigare "${uppslag}")`),
       );
     }
 
@@ -131,6 +152,16 @@ async function main() {
         .eq("id", befintlig.id);
       if (error) avbryt(`Kunde inte byta kundnummer: ${error.message}`);
       console.log(`  ✓ Kundnr är nu ${kundnr}.`);
+    }
+
+    const anteckning = arg("anteckning")?.trim();
+    if (anteckning !== undefined) {
+      const { error } = await db
+        .from("customer_accounts")
+        .update({ note: anteckning || null })
+        .eq("id", befintlig.id);
+      if (error) avbryt(`Kunde inte spara anteckningen: ${error.message}`);
+      console.log(`  ✓ Anteckning: ${anteckning || "(borttagen)"}`);
     }
 
     if (mejl) {
@@ -181,6 +212,7 @@ async function main() {
     pin_hash,
     pin_salt,
     contact_email: mejl ?? null,
+    note: arg("anteckning")?.trim() || null,
   });
   if (error) avbryt(`Kunde inte skapa kontot: ${error.message}`);
   console.log(

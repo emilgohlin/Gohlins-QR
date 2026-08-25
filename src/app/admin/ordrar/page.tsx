@@ -28,14 +28,14 @@ export default async function Ordersidan() {
 
   const { data: ordrar } = await db()
     .from("orders")
-    .select("id, account_id, order_number, reference, marking, status, error, created_at, sent_at, handled_at, handled_by")
+    .select("id, account_id, order_number, reference, marking, recipient_code, recipient_name, recipient_address, status, error, created_at, sent_at, handled_at, handled_by")
     .order("created_at", { ascending: false })
     .limit(ANTAL);
 
   const rader = ordrar ?? [];
   const { data: konton } = await db()
     .from("customer_accounts")
-    .select("id, company_name, kundnr, contact_email");
+    .select("id, company_name, kundnr, contact_email, note");
   const { data: orderrader } = rader.length
     ? await db()
         .from("order_lines")
@@ -56,6 +56,14 @@ export default async function Ordersidan() {
       mejl: konto?.contact_email ?? null,
       referens: order.reference,
       märke: order.marking,
+      mottagare: order.recipient_name
+        ? {
+            kod: order.recipient_code ?? "",
+            namn: order.recipient_name,
+            adress: order.recipient_address ?? "",
+          }
+        : null,
+      anteckning: konto?.note ?? null,
       status: order.status,
       fel: order.error,
       skapad: order.created_at,

@@ -39,6 +39,7 @@ export async function POST(request: Request) {
   const body = (await request.json()) as {
     reference?: string;
     marking?: string;
+    recipient?: string;
     lines?: InkommandeRad[];
   };
   const reference = body.reference?.trim();
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
   // inte i morgon bitti.
   const { data: konto } = await db()
     .from("customer_accounts")
-    .select("contact_email, active")
+    .select("contact_email, active, note")
     .eq("id", session.id)
     .maybeSingle();
 
@@ -90,9 +91,44 @@ export async function POST(request: Request) {
     );
   }
 
+  // Godsmottagaren slås upp mot kundens EGET register. Klienten skickar bara
+  // en kod, och en kod som inte finns hos den här kunden avvisas — annars
+  // räcker det att skriva om ett fält i webbläsaren för att leverera till en
+  // adress man inte har något med att göra.
+  const { data: mottagare } = await db()
+    .from("delivery_recipients")
+    .select("code, name, street, zip_city")
+    .eq("account_id", session.id)
+    .eq("active", true)
+    .order("sort_order");
+
+  const valdKod = body.recipient?.trim();
+  const vald = mottagare?.find((m) => m.code === valdKod) ?? null;
+
+  // Kravet gäller kunder som HAR ett mottagarregister. En kund utan register
+  // har ingen adress att välja, och ett obligatoriskt fält utan alternativ är
+  // bara en vägg.
+  if (mottagare?.length && !vald) {
+    return NextResponse.json(
+      { fel: "Välj vart leveransen ska." },
+      { status: 400 },
+    );
+  }
+
   const { data: order, error: orderFel } = await db()
     .from("orders")
-    .insert({ account_id: session.id, reference, marking })
+    .insert({
+      account_id: session.id,
+      reference,
+      marking,
+      // Kopieras hit, precis som benämningen på orderraden: registret ändras
+      // över tiden och ordern ska visa vad kunden valde när hen beställde.
+      recipient_code: vald?.code ?? null,
+      recipient_name: vald?.name ?? null,
+      recipient_address: vald
+        ? [vald.street, vald.zip_city].filter(Boolean).join(", ")
+        : null,
+    })
     .select("id, order_number")
     .single();
   if (orderFel || !order) {
@@ -137,6 +173,10 @@ export async function POST(request: Request) {
       customerName: session.companyName,
       reference,
       marking: marking ?? undefined,
+      recipient: vald
+        ? { code: vald.code, name: vald.name, street: vald.street, zipCity: vald.zip_city }
+        : undefined,
+      note: konto?.note ?? undefined,
       replyTo: konto?.contact_email ?? undefined,
       lines: rader,
     },

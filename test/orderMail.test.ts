@@ -60,6 +60,25 @@ test("decimaler stryks utan att lämna ett avbrutet tal", () => {
   assert.ok(rad(0.1).includes("0,1 st"), rad(0.1));
 });
 
+test("godsmottagare och anteckning står i mejlet", () => {
+  const text = orderMailText({
+    ...order,
+    recipient: {
+      code: "2",
+      name: "VARBERG Akwel Sweden AB",
+      street: "Susvindsvägen 28",
+      zipCity: "432 32 Varberg",
+    },
+    note: "Alla QR-ordrar ska offereras till joakim.svensson@akwel-automotive.se",
+  });
+  assert.ok(text.includes("Leverans till: 2 – VARBERG Akwel Sweden AB"), text);
+  assert.ok(text.includes("Susvindsvägen 28, 432 32 Varberg"), text);
+  assert.ok(text.includes("OBS: Alla QR-ordrar ska offereras"), text);
+  // Anteckningen ska stå FÖRE brödtexten om appen – en instruktion som hamnar
+  // sist läses sist.
+  assert.ok(text.indexOf("OBS:") < text.indexOf("Ordern är skannad"), text);
+});
+
 test("märket står med när det finns, och saknas annars", () => {
   const med = orderMailText({ ...order, marking: "Projekt Ekhagen" });
   assert.ok(med.includes("Märke/ordernr: Projekt Ekhagen"), med);

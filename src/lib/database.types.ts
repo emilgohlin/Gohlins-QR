@@ -30,6 +30,8 @@ export type CustomerAccount = {
   pin_hash: string;
   pin_salt: string;
   contact_email: string | null;
+  /** Sådant innesälj måste veta vid varje order. Visas i adminvyn. */
+  note: string | null;
   active: boolean;
   failed_count: number;
   locked_until: string | null;
@@ -44,6 +46,10 @@ export type Order = {
   reference: string;
   /** Kundens eget märke eller ordernummer. Frivilligt. */
   marking: string | null;
+  /** Vald godsmottagare, kopierad vid beställning. */
+  recipient_code: string | null;
+  recipient_name: string | null;
+  recipient_address: string | null;
   status: "utkast" | "mottagen" | "skickad" | "misslyckad";
   sent_at: string | null;
   email_to: string | null;
@@ -52,6 +58,19 @@ export type Order = {
   /** Satt när någon på Göhlins tagit hand om ordern. Null = ligger kvar. */
   handled_at: string | null;
   handled_by: string | null;
+  created_at: string;
+}
+
+export type DeliveryRecipient = {
+  id: string;
+  account_id: string;
+  /** Mot.nr i Monitor. */
+  code: string;
+  name: string;
+  street: string;
+  zip_city: string;
+  active: boolean;
+  sort_order: number;
   created_at: string;
 }
 
@@ -97,7 +116,7 @@ export type Database = {
     Tables: {
       customer_accounts: Table<
         CustomerAccount,
-        Omit<CustomerAccount, Genererad | "active" | "failed_count" | "locked_until" | "last_login_at" | "contact_email"> &
+        Omit<CustomerAccount, Genererad | "active" | "failed_count" | "locked_until" | "last_login_at" | "contact_email" | "note"> &
           Partial<CustomerAccount>,
         Partial<CustomerAccount>
       >;
@@ -108,6 +127,9 @@ export type Database = {
           | Genererad
           | "order_number"
           | "marking"
+          | "recipient_code"
+          | "recipient_name"
+          | "recipient_address"
           | "status"
           | "sent_at"
           | "email_to"
@@ -126,6 +148,12 @@ export type Database = {
         Partial<OrderLine>
       >;
       articles: Table<Article, Article, Partial<Article>>;
+      delivery_recipients: Table<
+        DeliveryRecipient,
+        Omit<DeliveryRecipient, Genererad | "active" | "sort_order" | "street" | "zip_city"> &
+          Partial<DeliveryRecipient>,
+        Partial<DeliveryRecipient>
+      >;
       staff_accounts: Table<
         StaffAccount,
         Omit<

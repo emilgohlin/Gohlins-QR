@@ -10,7 +10,8 @@
     "test": "tsx --test test/*.test.ts",
     "skapa-kund": "tsx --env-file=.env.local scripts/skapa-kund.ts",
     "skapa-admin": "tsx --env-file=.env.local scripts/skapa-admin.ts",
-    "bygg-ikoner": "tsx scripts/bygg-ikoner.ts"
+    "bygg-ikoner": "tsx scripts/bygg-ikoner.ts",
+    "mottagare": "tsx --env-file=.env.local scripts/mottagare.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

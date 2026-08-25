@@ -27,6 +27,10 @@ export interface OrderMailInput {
   reference: string;
   /** Kundens eget märke eller ordernummer. Tomt när hen inte angav något. */
   marking?: string;
+  /** Vald godsmottagare. */
+  recipient?: { code: string; name: string; street: string; zipCity: string };
+  /** Anteckning om kunden som innesälj måste se vid varje order. */
+  note?: string;
   /** Kundens mejladress, dit innesälj svarar. */
   replyTo?: string;
   lines: MailLine[];
@@ -74,12 +78,24 @@ export function orderMailText(order: OrderMailInput): string {
     // Märket står bara med när det finns. En rad med ett tomt värde ser ut som
     // något som glömts fyllas i.
     ...(order.marking ? [`Märke/ordernr: ${order.marking}`] : []),
+    ...(order.recipient
+      ? [
+          `Leverans till: ${order.recipient.code} – ${order.recipient.name}`,
+          `               ${[order.recipient.street, order.recipient.zipCity]
+            .filter(Boolean)
+            .join(", ")}`,
+        ]
+      : []),
     ...(order.replyTo ? [`Mejl:         ${order.replyTo}`] : []),
     "",
     table,
     "",
     `Totalt ${order.lines.length} ${order.lines.length === 1 ? "rad" : "rader"}.`,
     "",
+    // Anteckningen står HÖGT, ovanför brödtexten om appen. Den bär oftast en
+    // instruktion om just den här kunden, och en instruktion som hamnar sist
+    // läses sist.
+    ...(order.note ? [`OBS: ${order.note}`, ""] : []),
     "Ordern är skannad av kunden i Göhlins Kundorder. Artikelnummer och",
     "benämning kommer ur QR-koden på hyllkanten; priser sätts av er.",
     "ORDERS420-filen är bifogad.",
@@ -94,6 +110,7 @@ export function buildOrderMail(order: OrderMailInput, to: string[]): Mail {
     customerName: order.customerName,
     reference: order.reference,
     marking: order.marking,
+    recipient: order.recipient,
     lines: order.lines,
   };
   return {

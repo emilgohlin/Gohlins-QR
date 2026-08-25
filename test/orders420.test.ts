@@ -136,6 +136,35 @@ test("kundens märke hamnar i GoodsLabeling", () => {
     .includes("<Row1>A &amp; B &quot;C&quot;</Row1>"));
 });
 
+test("godsmottagaren läses av orderinläsningen", async () => {
+  const parseMonitorOrder = await loadParser();
+  const parsed = parseMonitorOrder(
+    buildOrders420({
+      ...order,
+      recipient: {
+        code: "2",
+        name: "VARBERG Akwel Sweden AB",
+        street: "Susvindsvägen 28",
+        zipCity: "432 32 Varberg",
+      },
+    }),
+  );
+  // deliveryName läses ur Head/DeliveryAddress/Name i the-brains parser.
+  // Hamnar blocket fel i trädet blir det här null.
+  assert.equal(parsed.deliveryName, "VARBERG Akwel Sweden AB");
+  // Resten av ordern får inte påverkas av att blocket lagts till.
+  assert.equal(parsed.customerCode, "26065");
+  assert.equal(parsed.lines.length, 3);
+});
+
+test("utan vald mottagare skrivs inget DeliveryAddress alls", async () => {
+  const parseMonitorOrder = await loadParser();
+  // Ett tomt block hade lästs som en adress utan namn, vilket är värre än
+  // ingen adress: orderinläsningen tror då att ett val gjorts.
+  assert.ok(!buildOrders420(order).includes("DeliveryAddress"));
+  assert.equal(parseMonitorOrder(buildOrders420(order)).deliveryName, null);
+});
+
 test("en tom order ger en läsbar fil utan rader", async () => {
   const parseMonitorOrder = await loadParser();
   const parsed = parseMonitorOrder(buildOrders420({ ...order, lines: [] }));

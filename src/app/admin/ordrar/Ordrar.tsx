@@ -25,6 +25,9 @@ export interface AdminOrder {
   mejl: string | null;
   referens: string;
   märke: string | null;
+  mottagare: { kod: string; namn: string; adress: string } | null;
+  /** Anteckning om kunden – visas på varje order, inte bara en gång. */
+  anteckning: string | null;
   status: string;
   fel: string | null;
   skapad: string;
@@ -205,6 +208,28 @@ export default function Ordrar({
                   )}
                   {order.mejl && <span className="text-gray-500"> · {order.mejl}</span>}
                 </p>
+
+                {/* Anteckningen står HÖGT och syns på varje order. En
+                    instruktion som gäller varje gång ("alla QR-ordrar ska
+                    offereras till …") får inte ligga där man måste leta. */}
+                {order.anteckning && (
+                  <p className="mt-3 rounded-lg border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    {order.anteckning}
+                  </p>
+                )}
+
+                {order.mottagare && (
+                  <p className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm">
+                    <span className="text-gray-500">Leverans till </span>
+                    <span className="font-bold">
+                      {order.mottagare.kod && `${order.mottagare.kod} · `}
+                      {order.mottagare.namn}
+                    </span>
+                    {order.mottagare.adress && (
+                      <span className="block text-gray-600">{order.mottagare.adress}</span>
+                    )}
+                  </p>
+                )}
 
                 <div className="mt-3 overflow-x-auto">
                   <table className="w-full min-w-md text-sm">

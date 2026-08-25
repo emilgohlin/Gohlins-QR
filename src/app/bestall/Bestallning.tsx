@@ -31,9 +31,17 @@ interface Rad {
   rå: string | null;
 }
 
+export interface Mottagare {
+  /** Mot.nr i Monitor. */
+  kod: string;
+  namn: string;
+  adress: string;
+}
+
 interface Props {
   företag: string;
   kundnr: string;
+  mottagare: Mottagare[];
 }
 
 function tolkaAntal(text: string): number | null {
@@ -50,12 +58,17 @@ function stega(antal: string, steg: number): string {
   return String(Math.max(1, n + steg)).replace(".", ",");
 }
 
-export default function Bestallning({ företag, kundnr }: Props) {
+export default function Bestallning({ företag, kundnr, mottagare }: Props) {
   const router = useRouter();
   const [vy, setVy] = useState<"rader" | "utcheckning">("rader");
   const [rader, setRader] = useState<Rad[]>([]);
   const [referens, setReferens] = useState("");
   const [märke, setMärke] = useState("");
+  // Har kunden bara en adress är valet redan gjort. Att tvinga fram ett klick
+  // mellan ett alternativ är ingen kontroll, bara ett hinder.
+  const [mottagarkod, setMottagarkod] = useState(
+    mottagare.length === 1 ? mottagare[0].kod : "",
+  );
   const [skannar, setSkannar] = useState(false);
   /** Raden som just skannades – kameran är pausad så länge den ligger här. */
   const [senaste, setSenaste] = useState<Rad | null>(null);
@@ -138,6 +151,7 @@ export default function Bestallning({ företag, kundnr }: Props) {
         body: JSON.stringify({
           reference: referens,
           marking: märke,
+          recipient: mottagarkod,
           lines: rader.map((r) => ({
             articleNumber: r.artikelnummer,
             name: r.benämning,
@@ -163,6 +177,7 @@ export default function Bestallning({ företag, kundnr }: Props) {
       setRader([]);
       setReferens("");
       setMärke("");
+      setMottagarkod(mottagare.length === 1 ? mottagare[0].kod : "");
       setVy("rader");
     } catch {
       setFel("Ingen kontakt med servern. Ordern är inte skickad – försök igen.");
@@ -247,7 +262,39 @@ export default function Bestallning({ företag, kundnr }: Props) {
         </ul>
 
         <form onSubmit={skicka} className="mt-6">
-          <label htmlFor="referens" className="block text-sm font-bold text-gray-700">
+          {mottagare.length > 0 && (
+            <>
+              <label htmlFor="mottagare" className="block text-sm font-bold text-gray-700">
+                Leverans till
+              </label>
+              <p className="text-xs text-gray-500">Vilken av era adresser ska godset till?</p>
+              <select
+                id="mottagare"
+                value={mottagarkod}
+                onChange={(e) => setMottagarkod(e.target.value)}
+                required
+                className="mt-1 min-h-14 w-full rounded-xl border border-gray-300 bg-white px-4 text-base outline-none focus:border-gohlins"
+              >
+                <option value="">Välj adress…</option>
+                {mottagare.map((m) => (
+                  <option key={m.kod} value={m.kod}>
+                    {m.namn}
+                    {m.adress ? ` – ${m.adress}` : ""}
+                  </option>
+                ))}
+              </select>
+              {/* Adressen upprepas under rullgardinen. En vald rad i en select
+                  klipps av på smala telefoner, och en avklippt adress är
+                  precis det man inte vill missa. */}
+              {mottagarkod && (
+                <p className="mt-1 text-sm text-gray-600">
+                  {mottagare.find((m) => m.kod === mottagarkod)?.adress}
+                </p>
+              )}
+            </>
+          )}
+
+          <label htmlFor="referens" className="mt-5 block text-sm font-bold text-gray-700">
             Er referens
           </label>
           <p className="text-xs text-gray-500">Vem hos er gäller ordern?</p>
@@ -285,7 +332,12 @@ export default function Bestallning({ företag, kundnr }: Props) {
               )}
               <button
                 type="submit"
-                disabled={skickar || rader.length === 0 || !referens.trim()}
+                disabled={
+                  skickar ||
+                  rader.length === 0 ||
+                  !referens.trim() ||
+                  (mottagare.length > 0 && !mottagarkod)
+                }
                 className="min-h-16 w-full rounded-xl bg-gohlins px-4 text-lg font-bold text-white transition-colors hover:bg-gohlins-mork disabled:opacity-40"
               >
                 {skickar ? "Skickar…" : "Skicka ordern"}

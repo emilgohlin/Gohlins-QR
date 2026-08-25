@@ -50,6 +50,20 @@ export interface OrderOut {
    * kommentar någon läser en gång.
    */
   marking?: string;
+  /**
+   * Godsmottagaren kunden valde – vart leveransen ska.
+   *
+   * Går ut som Head/DeliveryAddress, vilket är där the-brains orderinläsning
+   * läser den (deliveryName i parseOrder.ts). Utan den hamnar godset hos rätt
+   * företag men fel ort.
+   */
+  recipient?: {
+    /** Mot.nr i Monitor. */
+    code: string;
+    name: string;
+    street: string;
+    zipCity: string;
+  };
   lines: OrderLineOut[];
 }
 
@@ -115,6 +129,16 @@ export function buildOrders420(order: OrderOut): string {
     `<ZipCity2 />` +
     `<Country>Sverige</Country>` +
     `</Buyer>` +
+    (order.recipient
+      ? `<DeliveryAddress DeliveryCodeEdi="${esc(order.recipient.code)}">` +
+        `<Name>${esc(order.recipient.name)}</Name>` +
+        `<StreetBox1>${esc(order.recipient.street)}</StreetBox1>` +
+        `<StreetBox2 />` +
+        `<ZipCity1>${esc(order.recipient.zipCity)}</ZipCity1>` +
+        `<ZipCity2 />` +
+        `<Country>Sverige</Country>` +
+        `</DeliveryAddress>`
+      : "") +
     `<References>` +
     `<BuyerReference>${esc(order.reference)}</BuyerReference>` +
     `<BuyerComment />` +
