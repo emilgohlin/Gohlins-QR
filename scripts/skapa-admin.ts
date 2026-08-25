@@ -26,14 +26,18 @@ function avbryt(message: string): never {
 }
 
 /**
- * Personalkoder är LÅNGA, till skillnad från kundernas fyrsiffriga PIN.
+ * Kortast tillåtna personalkod.
  *
- * Kunden knappar in sin kod vid en hyllkant flera gånger om dagen och ser bara
- * sina egna ordrar. Det här kontot skrivs in på ett tangentbord någon gång per
- * dag och ser ALLA kunders ordrar. Då finns det ingen anledning att spara på
- * tecken.
+ * Kunden knappar in sin fyrsiffriga PIN vid en hyllkant flera gånger om dagen
+ * och ser bara sina egna ordrar. Det här kontot skrivs in på ett tangentbord
+ * någon gång per dag och ser ALLA kunders ordrar — där är fyra tecken för lite.
+ *
+ * Gränsen ligger vid tio och inte högre, för det är kort mot lång kod som är
+ * skillnaden, inte elva mot tolv. Skyddet vilar ändå på låset efter fem
+ * felförsök; längdkravet finns för att utesluta koder som gissas på en
+ * eftermiddag, inte för att jaga entropi decimal för decimal.
  */
-const MIN_LÄNGD = 12;
+const MIN_LÄNGD = 10;
 
 async function main() {
   const namn = arg("namn")?.trim();
@@ -49,7 +53,7 @@ async function main() {
   } else if (kod && kod.length < MIN_LÄNGD) {
     avbryt(
       `Koden är ${kod.length} tecken; minst ${MIN_LÄNGD} krävs.\n` +
-        "    Kontot ser alla kunders ordrar – det är inte platsen att spara tecken.",
+        "    Kontot ser alla kunders ordrar.",
     );
   }
 
