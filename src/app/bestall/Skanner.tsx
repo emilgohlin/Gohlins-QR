@@ -52,9 +52,19 @@ const TAKT_MS = 100;
  *  avkodning: en QR-kod behöver knappt 300 px för att läsas. */
 const AVKODNINGSSIDA = 512;
 
-/** Hur stor del av det synliga som siktet täcker. Måste stämma med rutan i
- *  gränssnittet – annars läser vi något annat än kunden siktar på. */
-const SIKTE = 0.75;
+/**
+ * Hur stor del av det synliga som siktet täcker.
+ *
+ * En liten ruta är bättre än en stor: mindre yta att avkoda, och kunden riktar
+ * telefonen mot EN dekal i stället för mot en hylla med fem. Sitter dekalerna
+ * tätt är det skillnaden mellan att beställa rätt artikel och grannens.
+ *
+ * Värdet styr både beskärningen och rutan på skärmen — de räknas ur samma
+ * konstant nedan, så de kan inte glida isär. Gjorde de det skulle vi läsa en
+ * annan yta än den kunden siktar med, vilket är omöjligt att förstå som
+ * användare.
+ */
+const SIKTE = 0.375;
 
 /**
  * Kameraströmmen, delad mellan öppningar av skannern.
@@ -252,12 +262,15 @@ export default function Skanner({ onKod, onStäng, pausad, children }: Props) {
       <div className="relative flex-1 overflow-hidden">
         <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
 
-        {/* Siktet. Måste täcka samma yta som avkodningen klipper ut (SIKTE),
-            annars läser vi något annat än kunden siktar på. */}
+        {/* Siktet. Måtten kommer ur SIKTE, samma konstant som beskärningen
+            använder: rutan på skärmen ÄR den yta som avkodas.
+            min(bredd, höjd) genom w+maxW, så rutan förblir kvadratisk oavsett
+            om telefonen hålls stående eller liggande. */}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div
-            className={`aspect-square w-[75%] max-w-[75vh] rounded-3xl border-4 shadow-[0_0_0_100vmax_rgba(0,0,0,0.45)] transition-colors ${
-              pausad ? "border-white/25" : "border-white/80"
+            style={{ width: `${SIKTE * 100}%`, maxWidth: `${SIKTE * 100}vh` }}
+            className={`aspect-square rounded-2xl border-4 shadow-[0_0_0_100vmax_rgba(0,0,0,0.5)] transition-colors ${
+              pausad ? "border-white/25" : "border-white/90"
             }`}
           />
         </div>
@@ -290,7 +303,9 @@ export default function Skanner({ onKod, onStäng, pausad, children }: Props) {
       <div className="bg-black px-4 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
         {children ?? (
           <div className="text-center">
-            <p className="text-sm text-white/70">Håll QR-koden på hyllkanten i rutan.</p>
+            <p className="text-sm text-white/70">
+              Håll QR-koden inne i rutan. Bara det som syns där läses av.
+            </p>
             <button
               type="button"
               onClick={onStäng}
