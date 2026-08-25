@@ -44,7 +44,7 @@ export type Order = {
   reference: string;
   /** Kundens eget märke eller ordernummer. Frivilligt. */
   marking: string | null;
-  status: "utkast" | "skickad" | "misslyckad";
+  status: "utkast" | "mottagen" | "skickad" | "misslyckad";
   sent_at: string | null;
   email_to: string | null;
   xml: string | null;

@@ -143,52 +143,44 @@ export async function POST(request: Request) {
     till,
   );
 
+  // FRÅN OCH MED HÄR ÄR ORDERN FRAMME.
+  //
+  // Raderna ligger i databasen och syns i adminvyn, där innesälj lägger in dem
+  // i affärssystemet och kvitterar. Mejlet är en bekvämlighet ovanpå det, inte
+  // vägen in. Därför får kunden ett lyckat besked oavsett hur det går med
+  // utskicket — allt annat vore att larma om ett fel som inte drabbar hen.
+  //
+  // Statusen på ordern berättar däremot hela sanningen, för det är innesälj som
+  // behöver veta om mejlet gick fram eller inte.
+  const kvitto = NextResponse.json({ ok: true, ordernummer: order.order_number });
+  // XML:en som faktiskt byggdes sparas oavsett utfall, inte en återskapning.
+  // Uppstår en tvist om vad som beställdes är det den här som gäller.
+  const xml = mail.attachments?.[0].content;
+
   if (!mejlKonfigurerat()) {
-    // Avsändarpostlådan är inte uppsatt än. Ordern sparas ändå — allt utom
-    // sista steget ska gå att köra skarpt — men den märks INTE som skickad.
-    // Att skriva "skickad" på en order som ingen fått vore den enda lögn
-    // systemet kan berätta som ingen upptäcker förrän leveransen uteblir.
+    // Ordern är MOTTAGEN, inte misslyckad: ingenting har gått fel, ett steg är
+    // bara inte påslaget. Mejlet skrivs i loggen så innehållet går att granska.
     console.info(
       `\n─── Ordermejl som INTE skickades (avsändaren är inte konfigurerad) ───\n` +
         `Till: ${till.join(", ")}\nÄmne: ${mail.subject}\n\n${mail.text}\n` +
-        `─── Bilaga ${mail.attachments?.[0].filename} ───\n${mail.attachments?.[0].content}\n`,
+        `─── Bilaga ${mail.attachments?.[0].filename} ───\n${xml}\n`,
     );
-    await db()
-      .from("orders")
-      .update({
-        status: "misslyckad",
-        error: "Mejlutskicket är inte konfigurerat (GRAPH_* saknas).",
-        xml: mail.attachments?.[0].content,
-      })
-      .eq("id", order.id);
-    return NextResponse.json(
-      {
-        fel:
-          `Ordern är sparad som ${order.order_number}, men mejlutskicket är inte ` +
-          "påslaget än. Ring oss så tar vi den för hand.",
-      },
-      { status: 503 },
-    );
+    await db().from("orders").update({ status: "mottagen", xml }).eq("id", order.id);
+    return kvitto;
   }
 
   try {
     await sendMail(mail);
   } catch (error) {
-    // Felet sparas i klartext på ordern. Utan det är allt vi vet att något gick
-    // fel, och en order som ska räddas manuellt behöver veta varför.
+    // Ett mejl som försöktes och inte gick fram ÄR ett fel, till skillnad från
+    // ett utskick som aldrig var påslaget. Det ska synas rött i adminvyn med
+    // orsaken i klartext — annars vet ingen varför.
     await db()
       .from("orders")
-      .update({ status: "misslyckad", error: String(error), xml: mail.attachments?.[0].content })
+      .update({ status: "misslyckad", error: String(error), xml })
       .eq("id", order.id);
     console.error("Ordermejl misslyckades", error);
-    return NextResponse.json(
-      {
-        fel:
-          `Ordern är sparad som ${order.order_number}, men mejlet gick inte iväg. ` +
-          "Ring oss gärna så tar vi den för hand.",
-      },
-      { status: 502 },
-    );
+    return kvitto;
   }
 
   await db()
@@ -197,11 +189,9 @@ export async function POST(request: Request) {
       status: "skickad",
       sent_at: new Date().toISOString(),
       email_to: till.join(", "),
-      // Filen som FAKTISKT mejlades sparas, inte en återskapning. Uppstår en
-      // tvist om vad som beställdes är det den här som gäller.
-      xml: mail.attachments?.[0].content,
+      xml,
     })
     .eq("id", order.id);
 
-  return NextResponse.json({ ok: true, ordernummer: order.order_number });
+  return kvitto;
 }

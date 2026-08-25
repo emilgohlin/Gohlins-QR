@@ -182,10 +182,13 @@ export default function Bestallning({ företag, kundnr }: Props) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-12 text-center">
         <p className="text-6xl text-gohlins">✓</p>
-        <h1 className="mt-4 text-2xl font-bold">Ordern är skickad</h1>
+        {/* "Mottagen", inte "skickad": ordern är framme hos Göhlins i samma
+            stund den ligger i adminvyn, oavsett om mejlet gick iväg. Att lova
+            ett mejl som kanske inte gick är ett löfte vi inte behöver ge. */}
+        <h1 className="mt-4 text-2xl font-bold">Tack, vi har din order</h1>
         <p className="mt-2 text-gray-600">
           Ordernummer <span className="font-bold text-gray-900">{skickad}</span>. Innesälj
-          hör av sig om något behöver stämmas av.
+          tar hand om den och hör av sig om något behöver stämmas av.
         </p>
         <button
           type="button"

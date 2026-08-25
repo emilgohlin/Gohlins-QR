@@ -50,19 +50,23 @@ function antal(n: number): string {
 /**
  * Vad statusen betyder för den som läser listan.
  *
- * "misslyckad" är rätt i databasen men fel på skärmen så länge utskicket är
- * avstängt med flit: ingenting har misslyckats, mejlet är inte påslaget. Det
- * ska inte se ut som ett fel att åtgärda.
+ * Skillnaden som betyder något: "mottagen" är en order som ligger och väntar på
+ * DIG — normalläget så länge mejlutskicket inte är påslaget. "misslyckad" är
+ * ett mejl som försöktes och inte gick fram, alltså ett fel att åtgärda. Ser de
+ * två likadana ut slutar man snart titta på båda.
  */
 function mejlstatus(order: AdminOrder): { text: string; klass: string } {
   if (order.status === "skickad") {
-    return { text: `Mejlad ${order.mejlad ? tidpunkt(order.mejlad) : ""}`.trim(), klass: "bg-green-50 text-green-800" };
-  }
-  if (order.fel?.includes("inte konfigurerat")) {
-    return { text: "Ej mejlad – utskicket är inte påslaget", klass: "bg-gray-100 text-gray-600" };
+    return {
+      text: `Mejlad ${order.mejlad ? tidpunkt(order.mejlad) : ""}`.trim(),
+      klass: "bg-green-50 text-green-800",
+    };
   }
   if (order.status === "misslyckad") {
     return { text: "Mejlet gick inte fram", klass: "bg-red-50 text-red-800" };
+  }
+  if (order.status === "mottagen") {
+    return { text: "Mottagen – läggs in för hand", klass: "bg-gray-100 text-gray-700" };
   }
   return { text: "Utkast", klass: "bg-gray-100 text-gray-600" };
 }
@@ -232,6 +236,12 @@ export default function Ordrar({
                 {/* Råkoderna göms men slängs inte: blir en rad fel är det den
                     som visar om koden var feltolkad eller om kunden skannade
                     fel dekal. */}
+                {order.status === "misslyckad" && order.fel && (
+                  <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-800">
+                    {order.fel}
+                  </p>
+                )}
+
                 <details className="mt-3">
                   <summary className="cursor-pointer text-xs text-gray-500">
                     Visa skannade koder
