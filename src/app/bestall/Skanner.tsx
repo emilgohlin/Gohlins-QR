@@ -2,15 +2,28 @@
 
 // Kameran och QR-avläsningen.
 //
-// TVÅ AVLÄSARE, med flit. Nyare telefoner har BarcodeDetector inbyggt i
-// webbläsaren: den är snabbast, drar minst batteri och kostar inget att ladda
-// ner. Saknas den faller vi tillbaka på zxing, som är ren JavaScript och
-// fungerar överallt. Fallbacken laddas först när den behövs — annars hade varje
-// kund fått hämta ett bibliotek de flesta aldrig använder.
+// TRE SAKER AVGÖR HASTIGHETEN, och alla tre var fel i första versionen:
 //
-// Kunden står i en lagergång med telefonen i ena handen. Därför: ingen
-// bekräfta-knapp efter varje skanning, utan en kort spärr som hindrar att samma
-// dekal läses tio gånger i sekunden medan kameran vilar på den.
+// 1. UPPLÖSNINGEN. Utan begärd upplösning ger telefonen ofta 640×480. En
+//    hyllkantsdekal på armlängds avstånd blir då en handfull suddiga pixlar.
+//    Vi ber om 1920×1080 och får det närmaste kameran kan.
+//
+// 2. VAD SOM AVLÄSES. Att tugga hela bildrutan är dyrt, och dyrast där det
+//    märks mest — på en telefon med JavaScript-avkodaren. Vi klipper ut rutan
+//    kunden faktiskt siktar med och läser bara den. Mindre yta, fler försök
+//    per sekund, och koden hittas snabbare.
+//
+// 3. TAKTEN. Förr anropades avläsningen 60 gånger i sekunden via
+//    requestAnimationFrame. Avkodningen hinner inte, anropen köar och allt blir
+//    trögt. Nu ett försök i taget, ca tio per sekund — snabbare i praktiken
+//    just för att vi frågar mer sällan.
+//
+// TVÅ AVLÄSARE: nyare telefoner har BarcodeDetector inbyggt, vilket är
+// snabbast och drar minst batteri. Saknas den faller vi tillbaka på zxing, som
+// är ren JavaScript och fungerar överallt. Fallbacken laddas först när den
+// behövs.
+//
+// STRÖMMEN DELAS mellan öppningar, se `delad` nedan.
 
 import { useEffect, useRef, useState } from "react";
 
@@ -21,19 +34,63 @@ interface Props {
    * Pausar AVLÄSNINGEN, inte kameran.
    *
    * Efter en träff ska bilden ligga kvar och strömmen fortsätta rulla — då är
-   * återupptagningen omedelbar. Stängde vi av kameran skulle den behöva starta
-   * om för varje artikel, och en kamera tar en sekund på sig. En sekund per rad
-   * är en evighet när man står vid hyllan med tjugo artiklar kvar.
+   * återupptagningen omedelbar.
    */
   pausad: boolean;
   /** Visas i stället för standardfoten – träffrutan eller avslagsrutan. */
   children?: React.ReactNode;
 }
 
-/** Samma kod ignoreras så länge efter en träff. Lång nog att hinna flytta
- *  telefonen till nästa dekal, kort nog att man kan skanna samma artikel igen
- *  med flit. */
+/** Samma kod ignoreras så länge efter en träff. */
 const SPÄRR_MS = 2500;
+
+/** Vila mellan avläsningsförsök. Tio i sekunden räcker gott för en hand som
+ *  håller en telefon, och lämnar processorn i fred däremellan. */
+const TAKT_MS = 100;
+
+/** Sidan på bilden vi avkodar. Större ger inte fler träffar, bara långsammare
+ *  avkodning: en QR-kod behöver knappt 300 px för att läsas. */
+const AVKODNINGSSIDA = 512;
+
+/** Hur stor del av det synliga som siktet täcker. Måste stämma med rutan i
+ *  gränssnittet – annars läser vi något annat än kunden siktar på. */
+const SIKTE = 0.75;
+
+/**
+ * Kameraströmmen, delad mellan öppningar av skannern.
+ *
+ * Varje getUserMedia är en ny fråga till webbläsaren, och på iOS betyder det
+ * ofta en ny dialogruta. Kunden som skannar tjugo artiklar ska inte behöva
+ * svara på samma fråga tjugo gånger. Strömmen släpps när sidan lämnas.
+ *
+ * Priset är att kameralampan lyser så länge fliken är öppen. Det är ett
+ * medvetet byte: en lysande lampa är synlig och begriplig, en dialogruta var
+ * tredje sekund gör appen oanvändbar.
+ */
+let delad: MediaStream | null = null;
+
+async function kameraström(): Promise<MediaStream> {
+  if (delad?.active) return delad;
+  delad = await navigator.mediaDevices.getUserMedia({
+    video: {
+      // "environment" = kameran på baksidan. ideal och inte exact: en laptop
+      // har bara en kamera, och då ska den användas i stället för att fela.
+      facingMode: { ideal: "environment" },
+      width: { ideal: 1920 },
+      height: { ideal: 1080 },
+    },
+    audio: false,
+  });
+  return delad;
+}
+
+if (typeof window !== "undefined") {
+  // pagehide och inte unload: iOS kör aldrig unload när fliken byts.
+  window.addEventListener("pagehide", () => {
+    delad?.getTracks().forEach((t) => t.stop());
+    delad = null;
+  });
+}
 
 interface DetectedBarcode {
   rawValue: string;
@@ -46,10 +103,8 @@ type BarcodeDetectorCtor = new (options?: { formats?: string[] }) => BarcodeDete
 export default function Skanner({ onKod, onStäng, pausad, children }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [fel, setFel] = useState<string | null>(null);
-  // Callbacken byts varje gång föräldern ritas om. Utan ref hade kameran
-  // startats om vid varje skannad rad. Uppdateringen sker i en effekt och inte
-  // under renderingen – en ref som skrivs under render kan hinna läsas i fel
-  // ordning när React avbryter och gör om en rendering.
+  const [lampa, setLampa] = useState<boolean | null>(null);
+
   const onKodRef = useRef(onKod);
   useEffect(() => {
     onKodRef.current = onKod;
@@ -63,10 +118,8 @@ export default function Skanner({ onKod, onStäng, pausad, children }: Props) {
   }, [pausad]);
 
   useEffect(() => {
-    let stream: MediaStream | null = null;
     let stoppad = false;
-    let rafId = 0;
-    let zxingControls: { stop: () => void } | null = null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const senaste = new Map<string, number>();
 
     function träff(raw: string) {
@@ -81,86 +134,147 @@ export default function Skanner({ onKod, onStäng, pausad, children }: Props) {
     }
 
     async function start() {
+      let ström: MediaStream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          // "environment" = kameran på baksidan. ideal och inte exact: en laptop
-          // har bara en kamera, och då ska den användas i stället för att fela.
-          video: { facingMode: { ideal: "environment" } },
-          audio: false,
-        });
-        if (stoppad) return;
-        const video = videoRef.current;
-        if (!video) return;
-        video.srcObject = stream;
-        // playsInline krävs av iOS, annars öppnas videon i helskärm.
-        await video.play();
-
-        const Detector = (window as unknown as { BarcodeDetector?: BarcodeDetectorCtor })
-          .BarcodeDetector;
-        if (Detector) {
-          const detector = new Detector({ formats: ["qr_code"] });
-          const läs = async () => {
-            if (stoppad) return;
-            if (pausadRef.current) {
-              rafId = requestAnimationFrame(läs);
-              return;
-            }
-            try {
-              const koder = await detector.detect(video);
-              if (koder.length) träff(koder[0].rawValue);
-            } catch {
-              // En enstaka misslyckad bildruta är normalt – fortsätt.
-            }
-            rafId = requestAnimationFrame(läs);
-          };
-          rafId = requestAnimationFrame(läs);
-        } else {
-          const { BrowserQRCodeReader } = await import("@zxing/browser");
-          if (stoppad) return;
-          const reader = new BrowserQRCodeReader();
-          zxingControls = await reader.decodeFromVideoElement(video, (result) => {
-            if (result && !pausadRef.current) träff(result.getText());
-          });
-        }
+        ström = await kameraström();
       } catch (error) {
         setFel(
           error instanceof DOMException && error.name === "NotAllowedError"
             ? "Kameran är blockerad. Tillåt kameran för sidan i webbläsarens inställningar."
             : "Kameran gick inte att starta. Du kan skriva in artikelnumret för hand i stället.",
         );
+        return;
       }
+      if (stoppad) return;
+
+      const video = videoRef.current;
+      if (!video) return;
+      video.srcObject = ström;
+      // playsInline krävs av iOS, annars öppnas videon i helskärm.
+      await video.play().catch(() => {});
+
+      const spår = ström.getVideoTracks()[0];
+      // Lampan finns bara på vissa telefoner. Saknas den ska knappen inte visas.
+      setLampa(
+        "torch" in (spår?.getCapabilities?.() ?? {}) ? false : null,
+      );
+
+      const duk = document.createElement("canvas");
+      duk.width = duk.height = AVKODNINGSSIDA;
+      const rit = duk.getContext("2d", { willReadFrequently: true });
+      if (!rit) return;
+
+      /**
+       * Klipper ut det kunden ser i siktet.
+       *
+       * Videon visas med object-cover, alltså beskuren för att fylla skärmen.
+       * Räknar vi på hela bildrutan läser vi delar som ligger utanför skärmen —
+       * kunden siktar på en dekal och vi letar någon annanstans.
+       */
+      function rita(): boolean {
+        const vb = video!.videoWidth;
+        const vh = video!.videoHeight;
+        if (!vb || !vh) return false;
+        const skala = Math.max(video!.clientWidth / vb, video!.clientHeight / vh);
+        const synligB = video!.clientWidth / skala;
+        const synligH = video!.clientHeight / skala;
+        const sida = Math.min(synligB, synligH) * SIKTE;
+        rit!.drawImage(
+          video!,
+          (vb - sida) / 2,
+          (vh - sida) / 2,
+          sida,
+          sida,
+          0,
+          0,
+          AVKODNINGSSIDA,
+          AVKODNINGSSIDA,
+        );
+        return true;
+      }
+
+      const Detector = (window as unknown as { BarcodeDetector?: BarcodeDetectorCtor })
+        .BarcodeDetector;
+      const detector = Detector ? new Detector({ formats: ["qr_code"] }) : null;
+      const zxing = detector
+        ? null
+        : new (await import("@zxing/browser")).BrowserQRCodeReader();
+      if (stoppad) return;
+
+      // Ett försök i taget: nästa läggs först när det förra är klart. Det är
+      // skillnaden mot requestAnimationFrame, där anropen köade upp sig.
+      const läs = async () => {
+        if (stoppad) return;
+        if (!pausadRef.current && rita()) {
+          try {
+            if (detector) {
+              const koder = await detector.detect(duk);
+              if (koder.length) träff(koder[0].rawValue);
+            } else {
+              träff(zxing!.decodeFromCanvas(duk).getText());
+            }
+          } catch {
+            // Ingen kod i rutan är normalfallet, inte ett fel.
+          }
+        }
+        if (!stoppad) timer = setTimeout(läs, TAKT_MS);
+      };
+      läs();
     }
 
     start();
 
     return () => {
       stoppad = true;
-      cancelAnimationFrame(rafId);
-      zxingControls?.stop();
-      // Kameran måste släppas explicit. Görs det inte lyser lampan kvar och
-      // telefonen värms tills fliken stängs.
-      stream?.getTracks().forEach((track) => track.stop());
+      clearTimeout(timer);
+      // Strömmen stoppas INTE här – den delas mellan öppningar. Se `delad`.
     };
   }, []);
+
+  async function växlaLampa() {
+    const spår = delad?.getVideoTracks()[0];
+    if (!spår) return;
+    const på = !lampa;
+    try {
+      // torch saknas i TypeScripts DOM-typer – lampan är ett tillägg som inte
+      // alla webbläsare har, och därför inte med i standardtypen.
+      await spår.applyConstraints({
+        advanced: [{ torch: på }],
+      } as unknown as MediaTrackConstraints);
+      setLampa(på);
+    } catch {
+      setLampa(null);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black">
       <div className="relative flex-1 overflow-hidden">
-        <video
-          ref={videoRef}
-          playsInline
-          muted
-          className="h-full w-full object-cover"
-        />
-        {/* Siktet. Visar var kameran läser, så kunden vet var dekalen ska hållas.
-            Under pausen tonas det ned – kameran letar inte, och det ska synas. */}
+        <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
+
+        {/* Siktet. Måste täcka samma yta som avkodningen klipper ut (SIKTE),
+            annars läser vi något annat än kunden siktar på. */}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div
-            className={`h-56 w-56 rounded-3xl border-4 shadow-[0_0_0_100vmax_rgba(0,0,0,0.45)] transition-colors ${
+            className={`aspect-square w-[75%] max-w-[75vh] rounded-3xl border-4 shadow-[0_0_0_100vmax_rgba(0,0,0,0.45)] transition-colors ${
               pausad ? "border-white/25" : "border-white/80"
             }`}
           />
         </div>
+
+        {lampa !== null && (
+          <button
+            type="button"
+            onClick={växlaLampa}
+            aria-pressed={lampa}
+            className={`absolute right-4 top-4 min-h-14 min-w-14 rounded-full text-2xl ${
+              lampa ? "bg-white text-gray-900" : "bg-black/50 text-white"
+            }`}
+          >
+            {lampa ? "☀" : "☼"}
+          </button>
+        )}
+
         {fel && (
           <p
             role="alert"
@@ -176,9 +290,7 @@ export default function Skanner({ onKod, onStäng, pausad, children }: Props) {
       <div className="bg-black px-4 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
         {children ?? (
           <div className="text-center">
-            <p className="text-sm text-white/70">
-              Håll QR-koden på hyllkanten i rutan.
-            </p>
+            <p className="text-sm text-white/70">Håll QR-koden på hyllkanten i rutan.</p>
             <button
               type="button"
               onClick={onStäng}
