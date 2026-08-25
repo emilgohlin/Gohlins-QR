@@ -35,7 +35,7 @@ export default async function MinaOrdrar() {
 
   const { data: ordrar } = await db()
     .from("orders")
-    .select("id, order_number, reference, marking, recipient_name, created_at, handled_at")
+    .select("id, order_number, reference, marking, recipient_code, recipient_name, created_at, handled_at")
     .eq("account_id", session.id)
     .order("created_at", { ascending: false })
     .limit(ANTAL);
@@ -95,7 +95,8 @@ export default async function MinaOrdrar() {
                   <p className="mt-2 text-sm text-gray-600">
                     {order.marking && <>Märke {order.marking}</>}
                     {order.marking && order.recipient_name && " · "}
-                    {order.recipient_name}
+                    {order.recipient_name &&
+                      `${order.recipient_code ? `${order.recipient_code} · ` : ""}${order.recipient_name}`}
                   </p>
                 )}
 

@@ -293,7 +293,7 @@ export default function Bestallning({ företag, kundnr, mottagare }: Props) {
                 <option value="">Välj adress…</option>
                 {mottagare.map((m) => (
                   <option key={m.kod} value={m.kod}>
-                    {m.namn}
+                    {m.kod} · {m.namn}
                     {m.adress ? ` – ${m.adress}` : ""}
                   </option>
                 ))}
@@ -303,6 +303,7 @@ export default function Bestallning({ företag, kundnr, mottagare }: Props) {
                   precis det man inte vill missa. */}
               {mottagarkod && (
                 <p className="mt-1 text-sm text-gray-600">
+                  <span className="text-gray-500">Mot.nr {mottagarkod} · </span>
                   {mottagare.find((m) => m.kod === mottagarkod)?.adress}
                 </p>
               )}

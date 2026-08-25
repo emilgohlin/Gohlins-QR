@@ -351,17 +351,28 @@ export default function Ordrar({
                   </p>
                 )}
 
+                {/* Mot.nr är ett fält som skrivs in i Monitor, precis som
+                    kundnumret och artikelnumren. Då ska det kopieras med ett
+                    klick och inte markeras med musen ur en mening. */}
                 {order.mottagare && (
-                  <p className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm">
-                    <span className="text-gray-500">Leverans till </span>
-                    <span className="font-bold">
-                      {order.mottagare.kod && `${order.mottagare.kod} · `}
-                      {order.mottagare.namn}
-                    </span>
+                  <div className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="shrink-0 text-gray-500">Mot.nr</span>
+                      {order.mottagare.kod ? (
+                        <Kopiera
+                          värde={order.mottagare.kod}
+                          etikett="mottagarnummer"
+                          className="-ml-1 font-mono text-base font-bold"
+                        />
+                      ) : (
+                        <span className="text-gray-400">saknas</span>
+                      )}
+                      <span className="min-w-0 truncate font-bold">{order.mottagare.namn}</span>
+                    </div>
                     {order.mottagare.adress && (
-                      <span className="block text-gray-600">{order.mottagare.adress}</span>
+                      <p className="mt-0.5 text-gray-600">{order.mottagare.adress}</p>
                     )}
-                  </p>
+                  </div>
                 )}
 
                 <div className="mt-3 overflow-x-auto">
