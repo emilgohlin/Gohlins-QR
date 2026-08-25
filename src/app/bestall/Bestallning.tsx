@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { parseScan } from "@/lib/qr";
 import Skanner from "./Skanner";
+import Hemskarmstips from "./Hemskarmstips";
 
 interface Rad {
   id: string;
@@ -379,6 +380,8 @@ export default function Bestallning({ företag, kundnr, mottagare }: Props) {
       >
         Skanna QR-kod
       </button>
+
+      <Hemskarmstips />
 
       <form onSubmit={läggTillManuellt} className="mt-3 flex gap-2">
         <input

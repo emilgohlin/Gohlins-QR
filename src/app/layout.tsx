@@ -4,6 +4,13 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Göhlins Kundorder",
   description: "Skanna hyllkanten och beställ.",
+  // Får iOS att starta appen i eget fönster när den lagts på hemskärmen.
+  // Det är i det läget kameratillståndet ges en gång och ligger kvar.
+  appleWebApp: {
+    capable: true,
+    title: "Göhlins",
+    statusBarStyle: "default",
+  },
 };
 
 export const viewport: Viewport = {
