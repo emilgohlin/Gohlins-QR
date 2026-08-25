@@ -5,9 +5,77 @@
 // Ordningen är medveten: OHANTERADE FÖRST, nyast överst. Listan ska svara på
 // frågan "vad ligger och väntar", inte "vad har hänt". Det som är kvitterat
 // finns kvar men tonas ned, så det går att gå tillbaka till.
+//
+// KORTET ÄR ETT UNDERLAG ATT SKRIVA AV, inte en sammanfattning. Den som lägger
+// in ordern i Monitor sitter med två fönster och flyttar värden mellan dem, så
+// allt som ska flyttas går att kopiera med ett klick — kundnumret och varje
+// artikelnummer. Att markera en textsnutt med musen och trycka ctrl+C tjugo
+// gånger är den sortens arbete som blir fel den tjugoförsta gången.
+//
+// Uppgifterna står på var sin rad av samma skäl. Referens och märke på samma
+// rad, åtskilda av en punkt, sparar en radhöjd och kostar en läsning extra
+// varje gång.
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+
+/**
+ * Värde som kopieras med ett klick.
+ *
+ * Visar värdet självt som knapp – att klicka på artikelnumret för att kopiera
+ * artikelnumret behöver ingen förklaring. Kvittensen är kort och tydlig, för
+ * utan den vet man inte om klicket tog.
+ */
+function Kopiera({
+  värde,
+  className = "",
+  etikett,
+}: {
+  värde: string;
+  className?: string;
+  etikett: string;
+}) {
+  const [läge, setLäge] = useState<"vila" | "kopierad" | "fel">("vila");
+
+  async function kopiera() {
+    try {
+      await navigator.clipboard.writeText(värde);
+      setLäge("kopierad");
+    } catch {
+      // Urklipp kräver säker anslutning och kan nekas av webbläsaren. Att
+      // misslyckas tyst vore värst av allt: då klistrar man in det som råkade
+      // ligga i urklippet sedan tidigare.
+      setLäge("fel");
+    }
+    setTimeout(() => setLäge("vila"), 1400);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={kopiera}
+      title={`Kopiera ${etikett}`}
+      aria-label={`Kopiera ${etikett}: ${värde}`}
+      className={`group inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-left transition-colors hover:bg-gray-100 ${
+        läge === "kopierad" ? "bg-green-50" : läge === "fel" ? "bg-red-50" : ""
+      } ${className}`}
+    >
+      <span>{värde}</span>
+      <span
+        aria-hidden
+        className={`text-xs font-normal ${
+          läge === "kopierad"
+            ? "text-green-700"
+            : läge === "fel"
+              ? "text-red-700"
+              : "text-gray-400 opacity-0 transition-opacity group-hover:opacity-100"
+        }`}
+      >
+        {läge === "kopierad" ? "kopierat" : läge === "fel" ? "gick inte" : "⧉"}
+      </span>
+    </button>
+  );
+}
 
 export interface AdminRad {
   artikelnummer: string;
@@ -186,28 +254,52 @@ export default function Ordrar({
                     : "border-gray-300 border-l-4 border-l-gohlins"
                 }`}
               >
-                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                  <div>
-                    <h2 className="text-lg font-semibold">{order.företag}</h2>
+                <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-bold">{order.företag}</h2>
                     <p className="text-sm text-gray-500">
-                      {order.ordernummer} · kundnr {order.kundnr || "–"} · {tidpunkt(order.skapad)}
+                      {order.ordernummer} · {tidpunkt(order.skapad)}
                     </p>
                   </div>
-                  <span className={`rounded-full px-3 py-1 text-xs ${status.klass}`}>
+                  <span className={`shrink-0 rounded-full px-3 py-1 text-xs ${status.klass}`}>
                     {status.text}
                   </span>
                 </div>
 
-                <p className="mt-2 text-sm text-gray-700">
-                  Referens: <span className="font-medium">{order.referens}</span>
-                  {order.märke && (
-                    <>
-                      {" · "}Märke/ordernr:{" "}
-                      <span className="font-medium">{order.märke}</span>
-                    </>
+                {/* Kundnumret är det första som skrivs in i Monitor, och det
+                    enda fältet där en felskriven siffra ger en order på fel
+                    kund. Därför överst och kopierbart. */}
+                <div className="mt-2 flex items-center gap-2 text-sm">
+                  <span className="text-gray-500">Kundnr</span>
+                  {order.kundnr ? (
+                    <Kopiera
+                      värde={order.kundnr}
+                      etikett="kundnummer"
+                      className="-ml-1 font-mono text-base font-bold"
+                    />
+                  ) : (
+                    <span className="text-gray-400">saknas</span>
                   )}
-                  {order.mejl && <span className="text-gray-500"> · {order.mejl}</span>}
-                </p>
+                </div>
+
+                <dl className="mt-2 space-y-1 text-sm">
+                  <div className="flex gap-2">
+                    <dt className="w-32 shrink-0 text-gray-500">Er referens</dt>
+                    <dd className="font-bold">{order.referens}</dd>
+                  </div>
+                  <div className="flex gap-2">
+                    <dt className="w-32 shrink-0 text-gray-500">Märke/ordernr</dt>
+                    <dd className={order.märke ? "font-bold" : "text-gray-400"}>
+                      {order.märke ?? "—"}
+                    </dd>
+                  </div>
+                  {order.mejl && (
+                    <div className="flex gap-2">
+                      <dt className="w-32 shrink-0 text-gray-500">Mejl</dt>
+                      <dd className="break-all text-gray-700">{order.mejl}</dd>
+                    </div>
+                  )}
+                </dl>
 
                 {/* Anteckningen står HÖGT och syns på varje order. En
                     instruktion som gäller varje gång ("alla QR-ordrar ska
@@ -232,25 +324,36 @@ export default function Ordrar({
                 )}
 
                 <div className="mt-3 overflow-x-auto">
-                  <table className="w-full min-w-md text-sm">
+                  <table className="w-full text-sm">
                     <thead className="text-left text-xs uppercase tracking-wide text-gray-500">
                       <tr>
                         <th className="pb-1 pr-3 font-medium">Artikelnr</th>
                         <th className="pb-1 pr-3 font-medium">Benämning</th>
-                        <th className="pb-1 font-medium">Antal</th>
+                        <th className="pb-1 text-right font-medium">Antal</th>
                       </tr>
                     </thead>
                     <tbody>
                       {order.rader.map((rad, i) => (
-                        <tr key={i} className="border-t border-gray-100 align-top">
-                          <td className="py-1.5 pr-3 font-mono">{rad.artikelnummer}</td>
-                          <td className="py-1.5 pr-3">
+                        <tr key={i} className="border-t border-gray-100 align-middle">
+                          <td className="py-1 pr-3">
+                            <Kopiera
+                              värde={rad.artikelnummer}
+                              etikett="artikelnummer"
+                              className="-ml-2 font-mono text-base font-bold"
+                            />
+                          </td>
+                          <td className="py-1 pr-3">
                             {rad.benämning || (
                               <span className="text-gray-400">(ingen benämning i koden)</span>
                             )}
                           </td>
-                          <td className="whitespace-nowrap py-1.5">
-                            {antal(rad.antal)} {rad.enhet}
+                          {/* Antalet är det andra värdet som skrivs in, och en
+                              siffra som läses fel blir en felleverans. Stort,
+                              fetstilt och högerställt så kolumnen går att
+                              läsa nedåt. */}
+                          <td className="whitespace-nowrap py-1 text-right text-base font-bold tabular-nums">
+                            {antal(rad.antal)}{" "}
+                            <span className="text-sm font-normal text-gray-500">{rad.enhet}</span>
                           </td>
                         </tr>
                       ))}
